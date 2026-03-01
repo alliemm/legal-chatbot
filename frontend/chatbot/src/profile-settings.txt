@@ -1,0 +1,116 @@
+========================================================
+USER PROFILE SETTINGS — CHATBOT LEGAL ASSISTANT
+========================================================
+
+--------------------------------------------------------
+1. FOCUS AREAS  (clause types the chatbot highlights)
+--------------------------------------------------------
+Options (multi-select, any combination allowed):
+
+  - Privacy & data collection clauses
+      Highlight how personal data is collected, stored, shared,
+      or sold. Flag broad consent language and opt-out limitations.
+
+  - Fee & payment clauses
+      Surface all costs, automatic renewals, late-payment penalties,
+      price-change rights, and hidden charges.
+
+  - Termination & cancellation conditions
+      Emphasize how either party may end the agreement, required
+      notice periods, early-exit fees, and what happens to data
+      after cancellation.
+
+  - Liability & indemnification clauses
+      Call out limitations of liability, indemnity obligations,
+      and waivers of legal rights.
+
+  - Intellectual property & ownership clauses
+      Flag who owns content the user creates, license grants to
+      the platform, and work-for-hire provisions.
+
+  - Dispute resolution & arbitration clauses
+      Highlight mandatory arbitration, class-action waivers, and
+      choice-of-law / jurisdiction provisions.
+
+  - Auto-renewal & subscription terms
+      Surface automatic rollover language, free-trial-to-paid
+      conversions, and cancellation windows.
+
+  - Non-compete & non-solicitation clauses
+      Flag restrictions on future employment, client poaching
+      prohibitions, and geographic/time limits.
+
+--------------------------------------------------------
+2. EXPLANATION STYLE
+--------------------------------------------------------
+Options (single-select):
+
+  - Plain language   — simple, jargon-free summaries
+  - Balanced         — mix of plain language with key legal terms defined
+  - Technical        — precise legal terminology preserved
+
+--------------------------------------------------------
+3. RESPONSE DETAIL LEVEL
+--------------------------------------------------------
+Options (single-select):
+
+  - Brief    — 2–3 sentence summary per clause
+  - Standard — paragraph-length explanation with key points called out
+  - Detailed — full breakdown including implications, examples, and risk rating
+
+--------------------------------------------------------
+4. RISK SENSITIVITY
+--------------------------------------------------------
+Options (single-select):
+
+  - Low    — flag only severe / clearly one-sided clauses
+  - Medium — flag moderately risky or unusual clauses (default)
+  - High   — flag anything that deviates from standard practice
+
+--------------------------------------------------------
+5. LANGUAGE PREFERENCE
+--------------------------------------------------------
+Options (single-select):
+
+  - English
+  - 中文 (Chinese)
+  - Español
+  - Français
+  - Deutsch
+  - Other (free text)
+
+--------------------------------------------------------
+6. DOCUMENT CONTEXT
+--------------------------------------------------------
+Stored from onboarding survey; editable at any time:
+
+  - User type           : Individual | Small business owner | Nonprofit | Other
+  - Legal experience    : No prior lawyer | Past lawyer | Currently has lawyer
+  - Document frequency  : Rarely | A few times a year | Monthly | Weekly
+  - Primary goal        : Understand what I'm signing
+                        | Identify risks before I sign
+                        | Know when I need a real lawyer
+                        | Build or negotiate a stronger document
+                        | Settle a dispute
+
+--------------------------------------------------------
+7. CHATBOT BEHAVIOUR FLAGS
+--------------------------------------------------------
+Toggle on/off:
+
+  - Always show a risk rating (Low / Medium / High) for each clause
+  - Recommend consulting a lawyer when risk is High
+  - Show relevant deadlines and key dates at the top of every summary
+  - Include a one-line plain-English TL;DR at the start of each response
+  - Proactively ask clarifying questions if the document context is unclear
+
+--------------------------------------------------------
+8. NOTIFICATION & HISTORY PREFERENCES
+--------------------------------------------------------
+  - Save document analysis history   : Yes | No
+  - Email digest of past analyses    : Never | Weekly | Monthly
+  - Allow anonymous usage analytics  : Yes | No
+
+========================================================
+END OF SETTINGS SPECIFICATION
+========================================================
