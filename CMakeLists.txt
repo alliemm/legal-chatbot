@@ -2,30 +2,24 @@ cmake_minimum_required(VERSION 3.20)
 project(legal_chatbot)
 
 set(CMAKE_CXX_STANDARD 17)
-add_definitions(-DCROW_USE_BOOST)
 
-if(WIN32)
-    set(BOOST_ROOT "C:/local/boost_1_90_0")
-    set(Boost_INCLUDE_DIR "C:/local/boost_1_90_0")
-    set(Boost_LIBRARY_DIR "C:/local/boost_1_90_0/lib64-msvc-14.3")
-endif()
-
-if(APPLE)
-    add_compile_options(-Wno-missing-field-initializers)
-endif()
-
-find_package(Boost REQUIRED)
-
-include_directories(${Boost_INCLUDE_DIRS})
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/crow")
+find_package(asio CONFIG REQUIRED)
+find_package(Crow CONFIG REQUIRED)
+find_package(libenvpp CONFIG REQUIRED)
+find_package(PostgreSQL REQUIRED)
+find_package(libpqxx CONFIG REQUIRED)
+find_package(unofficial-sodium CONFIG REQUIRED)
 
 add_executable(legal_chatbot backend.cpp)
 
-target_link_libraries(legal_chatbot PRIVATE Boost::boost)
+target_link_libraries(legal_chatbot PRIVATE
+        asio::asio
+        Crow::Crow
+        libenvpp::libenvpp
+        libpqxx::pqxx
+        unofficial-sodium::sodium
+        shlwapi
+        ws2_32
+        secur32
+)
 
-if(WIN32)
-    target_link_libraries(legal_chatbot PRIVATE ws2_32 mswsock)
-else()
-    find_package(Threads REQUIRED)
-    target_link_libraries(legal_chatbot PRIVATE Threads::Threads)
-endif()
