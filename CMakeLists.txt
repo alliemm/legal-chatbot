@@ -18,8 +18,5 @@ target_link_libraries(legal_chatbot PRIVATE
         libenvpp::libenvpp
         libpqxx::pqxx
         unofficial-sodium::sodium
-        shlwapi
-        ws2_32
-        secur32
 )
 

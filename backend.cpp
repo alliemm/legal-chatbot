@@ -6,26 +6,38 @@
 #include <pqxx/pqxx>
 #include <sodium.h>
 
-
 std::string getConnectionString();
-std::unique_ptr<pqxx::connection> connectToDatabase();
-bool checkPassword(const std::string& email, const std::string& password);
+std::unique_ptr<pqxx::connection> connectToDatabase(const std::string& postgresConnectionString);
+bool checkPassword(const std::string& email, const std::string& password, const std::string& connectionString);
 
 int main() {
+    //initialize sodium library
+    if (sodium_init() < 0)
+    {
+        return 1;
+    }
+    //get connection string once
+    std::string connectionString = getConnectionString();
+
     //setup sessions
     //using file store so that session data is stored in json files
     using Session = crow::SessionMiddleware<crow::FileStore>;
+    crow::FileStore sessionStore("./sessionData");
     //create app
-    crow::App<crow::CookieParser, Session> app{Session{crow::FileStore{"./sessionData"}}};;
+    crow::App<crow::CookieParser, Session> app{
+        Session{sessionStore}
+    };
+
+    app.loglevel(crow::LogLevel::Debug);
 
     CROW_ROUTE(app, "/")([](){
         return "This is just a test!";
     });
+
     //signup
     CROW_ROUTE(app, "/signup").methods("POST"_method)
-    ([&](const crow::request& req){
+    ([connectionString](const crow::request& req){
         auto data = crow::json::load(req.body);
-        auto& session = app.get_context<Session>(req);
         //if there is no data or if the data is missing the email or password field return error
         if (!data || !data.has("password") || !data.has("email"))
         {
@@ -35,7 +47,7 @@ int main() {
         std::string password= data["password"].s();
         std::string email= data["email"].s();
         //check if the email is already taken and return error/message saying that username is taken
-        auto conn = connectToDatabase();
+        auto conn = connectToDatabase(connectionString);
         if (!conn)
         {
             return crow::response(500, "Failed to connect to database");
@@ -62,7 +74,6 @@ int main() {
             //end transaction
             transaction.commit();
             //store the current user as authenticated
-            session.set("user", email);
             return crow::response(201, "Created new account");
         }else
         {
@@ -73,11 +84,11 @@ int main() {
 
 
     });
+
     //login
     CROW_ROUTE(app, "/login").methods("POST"_method)
-    ([&](const crow::request& req){
+    ([&app, connectionString](const crow::request& req){
         auto data = crow::json::load(req.body);
-        auto& session = app.get_context<Session>(req);
         //if there is no data or if the data is missing the username or password or email field return error
         if (!data || !data.has("email") || !data.has("password"))
         {
@@ -86,9 +97,11 @@ int main() {
         std::string email= data["email"].s();
         std::string password= data["password"].s();
         //verify that the user exists and used the correct password
-        if (checkPassword(email,password))
+        if (checkPassword(email,password, connectionString))
         {
-            session.set("user", email);
+            auto& session = app.get_context<Session>(req);
+            session.set("user", std::string(email.c_str()));
+
             return crow::response(202, "User logged in");
         }else
         {
@@ -97,23 +110,23 @@ int main() {
 
     });
     //logout
-    CROW_ROUTE(app, "/logout")([&](const crow::request& req){
+    CROW_ROUTE(app, "/logout")([&app](const crow::request& req){
         auto& session = app.get_context<Session>(req);
-        auto  user = session.get("user", "");
         //return error since user isn't logged
-        if (user == "")
+        if (session.get("user", "").empty())
         {
-            return crow::response(400, "This guest isn't logged in");
-        }else
-        {
-            //remove user from session
-            session.remove("user");
-            //return success
-            return crow::response(200, "User logged out");
+            return crow::response(400, "Already logged out");
         }
+        std::cout << "Logging out"  << std::endl;
+        //remove user from session
+        session.remove("user");
+        //return success
+        return crow::response(200, "User logged out");
     });
 
     app.port(18080).multithreaded().run();
+    //app.port(18080).run();
+
 }
 
 std::string getConnectionString()
@@ -124,10 +137,8 @@ std::string getConnectionString()
     return validPre.get(connectVar_id);
 }
 
-std::unique_ptr<pqxx::connection> connectToDatabase()
+std::unique_ptr<pqxx::connection> connectToDatabase(const std::string& postgresConnectionString)
 {
-    //get the conection string from environment variable
-    std::string postgresConnectionString = getConnectionString();
     //try to connect to database
     try
     {
@@ -135,8 +146,9 @@ std::unique_ptr<pqxx::connection> connectToDatabase()
         if (conn->is_open())
         {
             std::cout << "Connection to database established!" << std::endl;
+            return conn;
         }
-        return conn;
+        return nullptr;
     }
     catch (std::exception& e)
     {
@@ -146,12 +158,12 @@ std::unique_ptr<pqxx::connection> connectToDatabase()
     }
 }
 
-bool checkPassword(const std::string& email, const std::string& password)
+bool checkPassword(const std::string& email, const std::string& password, const std::string& connectionString)
 {
     try
     {
         //attempt to connect to the database
-        auto conn = connectToDatabase();
+        auto conn = connectToDatabase(connectionString);
         if (!conn)
         {
             return false;
@@ -159,13 +171,13 @@ bool checkPassword(const std::string& email, const std::string& password)
         //start a transaction
         pqxx::nontransaction nonTransaction(*conn);
         //compare password in the database and the password the user entered
+        std::cout << "Checking password" << std::endl;
         pqxx::result res = nonTransaction.exec("SELECT password FROM users WHERE email = $1",pqxx::params{email});
         if (res.empty())
         {
             return false;
         }else
         {
-            pqxx::row myrow = res[0];
             std::string hashedPassword = res[0]["password"].as<std::string>();
             if (crypto_pwhash_str_verify(hashedPassword.c_str(), password.c_str(), password.length()) != 0) {
                 //the password is incorrect so return false
