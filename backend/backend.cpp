@@ -145,9 +145,9 @@ int main() {
        //start a transaction
        pqxx::work transaction(*conn);
        //run query to delete from all databases
-       pqxx::result res = transaction.exec("DELETE FROM users WHERE email = $1",pqxx::params{email});
-       res = transaction.exec("DELETE FROM surveys WHERE email = $1",pqxx::params{email});
-       res = transaction.exec("DELETE FROM documents WHERE email = $1",pqxx::params{email});
+       transaction.exec("DELETE FROM users WHERE email = $1",pqxx::params{email});
+       transaction.exec("DELETE FROM surveys WHERE email = $1",pqxx::params{email});
+       transaction.exec("DELETE FROM documents WHERE email = $1",pqxx::params{email});
        //commit the transaction
        transaction.commit();
        return crow::response(200, "Account Deleted");
@@ -193,6 +193,56 @@ int main() {
       //commit the transaction
       transaction.commit();
       return crow::response(200, "Saved survey results");
+  });
+
+  CROW_ROUTE(app, "/upload").methods("POST"_method)
+  ([&app, connectionString](const crow::request& req){
+      //ensure that user is logged in
+      auto& session = app.get_context<Session>(req);
+      std::string email = session.get("user", "");
+      //if the user isn't logged in then respond with error
+      if (email.empty())
+      {
+          return crow::response(401, "Unauthorized");
+      }
+      //get the file
+      crow::multipart::message_view fileMessage(req);
+      for (const auto& part : fileMessage.part_map)
+      {
+          const auto& partName = part.first;
+          const auto& partValue = part.second;
+          if ("InputFile" == partName)
+          {
+              auto fileHeaders = partValue.headers.find("Content-Disposition");
+              if (fileHeaders == partValue.headers.end())
+              {
+                  return crow::response(400, "No content-disposition found");
+              }
+              auto params = fileHeaders->second.params.find("filename");
+              if (params == fileHeaders->second.params.end())
+              {
+                  return crow::response(400, "No filename found");
+              }
+              //get the file name
+              const std::string fileName{params->second};
+              //insert the file into the database
+              //connect to database
+              auto conn = connectToDatabase(connectionString);
+              if (!conn)
+              {
+                  return crow::response(500, "Failed to connect to database");
+              }
+              //start a transaction
+              pqxx::work transaction(*conn);
+              //run query to add user survey answers to database
+              pqxx::result res = transaction.exec("INSERT INTO documents VALUES ($1, $2, $3)",
+                 pqxx::params{email, fileName, pqxx::binarystring(part.second.body.data(), part.second.body.size())});
+              //commit the transaction
+              transaction.commit();
+              break;
+          }
+      }
+      return crow::response(202, "Successfully uploaded file");
   });
 
 
