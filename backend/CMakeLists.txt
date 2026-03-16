@@ -8,15 +8,20 @@ find_package(Crow CONFIG REQUIRED)
 find_package(libenvpp CONFIG REQUIRED)
 find_package(PostgreSQL REQUIRED)
 find_package(libpqxx CONFIG REQUIRED)
-find_package(unofficial-sodium CONFIG REQUIRED)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SODIUM REQUIRED libsodium)
 
 add_executable(legal_chatbot backend.cpp)
+
+target_include_directories(legal_chatbot PRIVATE ${SODIUM_INCLUDE_DIRS})
 
 target_link_libraries(legal_chatbot PRIVATE
         asio::asio
         Crow::Crow
         libenvpp::libenvpp
         libpqxx::pqxx
-        unofficial-sodium::sodium
+        ${SODIUM_LIBRARIES}
 )
 
+target_link_directories(legal_chatbot PRIVATE ${SODIUM_LIBRARY_DIRS})
