@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 find_package(asio CONFIG REQUIRED)
 find_package(Crow CONFIG REQUIRED)
+find_package(CURL REQUIRED)
 find_package(libenvpp CONFIG REQUIRED)
 find_package(PostgreSQL REQUIRED)
 find_package(libpqxx CONFIG REQUIRED)
@@ -19,6 +20,7 @@ target_include_directories(legal_chatbot PRIVATE ${SODIUM_INCLUDE_DIRS})
 target_link_libraries(legal_chatbot PRIVATE
         asio::asio
         Crow::Crow
+        CURL::libcurl
         libenvpp::libenvpp
         libpqxx::pqxx
         ${SODIUM_LIBRARIES}

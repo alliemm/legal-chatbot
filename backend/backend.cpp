@@ -1,44 +1,100 @@
+#include <algorithm>
+#include <cctype>
+#include <cstring>
 #include <iostream>
+#include <memory>
+#include <stdexcept>
 #include <string>
+#include <utility>
+#include <vector>
 #include "crow.h"
 #include "crow/middlewares/session.h"
 #include "libenvpp/env.hpp"
+#include <curl/curl.h>
+#include <pqxx/binarystring>
 #include <pqxx/pqxx>
 #include <sodium.h>
 
+const std::string GEMINI_API_KEY = "replace-with-gemini-api-key";
+const std::string GEMINI_MODEL = "gemini-2.5-flash";
+const std::string GEMINI_ENDPOINT =
+    "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent";
+const std::string GEMINI_SYSTEM_INSTRUCTION =
+    "You are LexAssist, an AI legal document assistant. Use the uploaded user documents and chat history to answer "
+    "the user's question. Do not claim to be a lawyer or provide legal representation. Be clear about uncertainty "
+    "and cite the relevant document content when possible.";
+
+struct ChatMessage
+{
+    std::string role;
+    std::string text;
+};
+
+struct StoredDocument
+{
+    std::string name;
+    std::string mimeType;
+    std::string base64Data;
+};
+
+struct GeminiHttpResponse
+{
+    long statusCode = 0;
+    std::string body;
+    std::string error;
+};
+
 std::string getConnectionString();
-std::unique_ptr<pqxx::connection> connectToDatabase(const std::string& postgresConnectionString);
-bool checkPassword(const std::string& email, const std::string& password, const std::string& connectionString);
+std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresConnectionString);
+bool checkPassword(const std::string &email, const std::string &password, const std::string &connectionString);
+std::string normalizeChatRole(const std::string &role);
+std::string guessMimeType(const std::string &fileName);
+std::string base64Encode(const unsigned char *data, size_t size);
+std::vector<StoredDocument> loadDocuments(
+    const std::string &email,
+    const std::vector<std::string> &requestedNames,
+    const std::string &connectionString,
+    std::vector<std::string> &missingDocuments);
+std::string buildGeminiRequestBody(
+    const std::string &message,
+    const std::vector<ChatMessage> &history,
+    const std::vector<StoredDocument> &documents);
+GeminiHttpResponse sendGeminiRequest(const std::string &requestBody);
+std::string extractGeminiReply(const std::string &responseBody);
+std::string extractGeminiError(const std::string &responseBody);
+size_t writeCurlResponse(void *contents, size_t size, size_t nmemb, void *userp);
 
 int main()
 {
-    //initialize sodium library
+    // initialize sodium library
     if (sodium_init() < 0)
     {
         return 1;
     }
-    //get connection string once
+    if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK)
+    {
+        std::cerr << "Failed to initialize curl" << std::endl;
+        return 1;
+    }
+    // get connection string once
     std::string connectionString = getConnectionString();
 
-    //setup sessions
-    //using file store so that session data is stored in json files
+    // setup sessions
+    // using file store so that session data is stored in json files
     using Session = crow::SessionMiddleware<crow::FileStore>;
     crow::FileStore sessionStore("./sessionData");
-    //create app
+    // create app
     crow::App<crow::CookieParser, Session> app{
-        Session{sessionStore}
-    };
+        Session{sessionStore}};
 
     app.loglevel(crow::LogLevel::Debug);
 
     CROW_ROUTE(app, "/")([]()
-    {
-        return "This is just a test!";
-    });
+                         { return "This is just a test!"; });
 
-    //signup
-    CROW_ROUTE(app, "/signup").methods("POST"_method)([&app, connectionString](const crow::request& req)
-    {
+    // signup
+    CROW_ROUTE(app, "/signup").methods("POST"_method)([&app, connectionString](const crow::request &req)
+                                                      {
         auto data = crow::json::load(req.body);
         //if there is no data or if the data is missing the email or password field return error
         if (!data || !data.has("password") || !data.has("email"))
@@ -86,12 +142,11 @@ int main()
             //since it failed abort the transaction
             transaction.abort();
             return crow::response(400, "This email address is already taken");
-        }
-    });
+        } });
 
-    //login
-    CROW_ROUTE(app, "/login").methods("POST"_method)([&app, connectionString](const crow::request& req)
-    {
+    // login
+    CROW_ROUTE(app, "/login").methods("POST"_method)([&app, connectionString](const crow::request &req)
+                                                     {
         auto data = crow::json::load(req.body);
         //if there is no data or if the data is missing the username or password or email field return error
         if (!data || !data.has("email") || !data.has("password"))
@@ -111,11 +166,10 @@ int main()
         else
         {
             return crow::response(400, "Incorrect login information");
-        }
-    });
-    //logout
-    CROW_ROUTE(app, "/logout")([&app](const crow::request& req)
-    {
+        } });
+    // logout
+    CROW_ROUTE(app, "/logout")([&app](const crow::request &req)
+                               {
         auto& session = app.get_context<Session>(req);
         //return error since user isn't logged
         if (session.get("user", "").empty())
@@ -126,11 +180,10 @@ int main()
         //remove user from session
         session.remove("user");
         //return success
-        return crow::response(200, "User logged out");
-    });
-    //delete account
-    CROW_ROUTE(app, "/deactivate").methods("DELETE"_method)([&app, connectionString](const crow::request& req)
-    {
+        return crow::response(200, "User logged out"); });
+    // delete account
+    CROW_ROUTE(app, "/deactivate").methods("DELETE"_method)([&app, connectionString](const crow::request &req)
+                                                            {
         auto& session = app.get_context<Session>(req);
         std::string email = session.get("user", "");
         //if the user isn't logged in then respond with error
@@ -161,68 +214,63 @@ int main()
         {
             std::cerr << e.what() << std::endl;
             return crow::response(500, "Failed to delete account");
-        }
-    });
+        } });
 
-    //survey
-    CROW_ROUTE(app, "/survey").methods("POST"_method)([&app, connectionString](const crow::request& req)
-    {
-        //ensure that user is logged in
-        auto& session = app.get_context<Session>(req);
-        std::string email = session.get("user", "");
-        //if the user isn't logged in then respond with error
-        if (email.empty())
-        {
-            return crow::response(401, "Unauthorized");
-        }
-        //get the body of the request
-        auto data = crow::json::load(req.body);
-        //if there is no data or if the data is missing any of the necessary fields return an error
-        if (!data || !data.has("userType") || !data.has("workedWithLawyer") || !data.has("howOften") || !data.has(
-                "typesOfDocuments")
-            || !data.has("biggestConcerns") || !data.has("jargonUnderstanding") || !data.has("outcome"))
-        {
-            return crow::response(400, "Missing survey information");
-        }
-        //get survey answers from request
-        std::string userType = data["userType"].s();
-        std::string workedWithLawyer = data["workedWithLawyer"].s();
-        std::string howOften = data["howOften"].s();
-        std::string typesOfDocuments = data["typesOfDocuments"].s();
-        std::string biggestConcerns = data["biggestConcerns"].s();
-        std::string jargonUnderstanding = data["jargonUnderstanding"].s();
-        std::string outcome = data["outcome"].s();
-        //connect to database
-        try
-        {
-            auto conn = connectToDatabase(connectionString);
-            if (!conn)
-            {
-                return crow::response(500, "Failed to connect to database");
-            }
-            //start a transaction
-            pqxx::work transaction(*conn);
-            //run query to add user survey answers to database
-            pqxx::result res = transaction.exec("INSERT INTO surveys VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-                                                pqxx::params{
-                                                    email, userType, workedWithLawyer, howOften, typesOfDocuments,
-                                                    biggestConcerns, jargonUnderstanding, outcome
-                                                });
-            //commit the transaction
-            transaction.commit();
-            return crow::response(200, "Saved survey results");
-        }
-        catch (std::exception& e)
-        {
-            std::cerr << e.what() << std::endl;
-            return crow::response(500, "Failed to save survey results");
-        }
+    // survey
+    CROW_ROUTE(app, "/survey").methods("POST"_method)([&app, connectionString](const crow::request &req)
+                                                      {
+                                                          // ensure that user is logged in
+                                                          auto &session = app.get_context<Session>(req);
+                                                          std::string email = session.get("user", "");
+                                                          // if the user isn't logged in then respond with error
+                                                          if (email.empty())
+                                                          {
+                                                              return crow::response(401, "Unauthorized");
+                                                          }
+                                                          // get the body of the request
+                                                          auto data = crow::json::load(req.body);
+                                                          // if there is no data or if the data is missing any of the necessary fields return an error
+                                                          if (!data || !data.has("userType") || !data.has("workedWithLawyer") || !data.has("howOften") || !data.has("typesOfDocuments") || !data.has("biggestConcerns") || !data.has("jargonUnderstanding") || !data.has("outcome"))
+                                                          {
+                                                              return crow::response(400, "Missing survey information");
+                                                          }
+                                                          // get survey answers from request
+                                                          std::string userType = data["userType"].s();
+                                                          std::string workedWithLawyer = data["workedWithLawyer"].s();
+                                                          std::string howOften = data["howOften"].s();
+                                                          std::string typesOfDocuments = data["typesOfDocuments"].s();
+                                                          std::string biggestConcerns = data["biggestConcerns"].s();
+                                                          std::string jargonUnderstanding = data["jargonUnderstanding"].s();
+                                                          std::string outcome = data["outcome"].s();
+                                                          // connect to database
+                                                          try
+                                                          {
+                                                              auto conn = connectToDatabase(connectionString);
+                                                              if (!conn)
+                                                              {
+                                                                  return crow::response(500, "Failed to connect to database");
+                                                              }
+                                                              // start a transaction
+                                                              pqxx::work transaction(*conn);
+                                                              // run query to add user survey answers to database
+                                                              pqxx::result res = transaction.exec("INSERT INTO surveys VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                                                                                                  pqxx::params{
+                                                                                                      email, userType, workedWithLawyer, howOften, typesOfDocuments,
+                                                                                                      biggestConcerns, jargonUnderstanding, outcome});
+                                                              // commit the transaction
+                                                              transaction.commit();
+                                                              return crow::response(200, "Saved survey results");
+                                                          }
+                                                          catch (std::exception &e)
+                                                          {
+                                                              std::cerr << e.what() << std::endl;
+                                                              return crow::response(500, "Failed to save survey results");
+                                                          }
+                                                      });
 
-    });
-
-    //upload
-    CROW_ROUTE(app, "/upload").methods("POST"_method)([&app, connectionString](const crow::request& req)
-    {
+    // upload
+    CROW_ROUTE(app, "/upload").methods("POST"_method)([&app, connectionString](const crow::request &req)
+                                                      {
         //ensure that user is logged in
         auto& session = app.get_context<Session>(req);
         std::string email = session.get("user", "");
@@ -276,64 +324,172 @@ int main()
 
             }
         }
-        return crow::response(202, "Successfully uploaded file");
-    });
+        return crow::response(202, "Successfully uploaded file"); });
 
-    //profile
-    CROW_ROUTE(app, "/profile").methods("GET"_method)([&app, connectionString](const crow::request& req)
-    {
-        //ensure that user is logged in
+    // profile
+    CROW_ROUTE(app, "/profile").methods("GET"_method)([&app, connectionString](const crow::request &req)
+                                                      {
+                                                          // ensure that user is logged in
+                                                          auto &session = app.get_context<Session>(req);
+                                                          std::string email = session.get("user", "");
+                                                          // if the user isn't logged in then respond with error
+                                                          if (email.empty())
+                                                          {
+                                                              return crow::response(401, "Unauthorized");
+                                                          }
+                                                          try
+                                                          {
+                                                              auto conn = connectToDatabase(connectionString);
+                                                              pqxx::nontransaction nonTransaction(*conn);
+                                                              // get the names of the user's documents
+                                                              pqxx::result docs = nonTransaction.exec("SELECT name FROM documents WHERE email = $1", pqxx::params{email});
+                                                              // get the user's survey preference answers
+                                                              pqxx::result survey = nonTransaction.exec("SELECT * FROM surveys WHERE email = $1", pqxx::params{email});
+                                                              crow::json::wvalue response;
+                                                              response["email"] = email;
+
+                                                              // store the documents
+                                                              std::vector<std::string> documents;
+                                                              for (auto const &row : docs)
+                                                              {
+                                                                  documents.push_back(row["name"].c_str());
+                                                              }
+                                                              response["documents"] = documents;
+                                                              // store the survey data
+                                                              if (!survey.empty())
+                                                              {
+                                                                  crow::json::wvalue surveyData;
+                                                                  for (auto const &column : survey[0])
+                                                                  {
+                                                                      surveyData[column.name()] = column.c_str();
+                                                                  }
+                                                                  response["survey"] = std::move(surveyData);
+                                                              }
+                                                              else
+                                                              {
+                                                                  response["survey"] = nullptr;
+                                                              }
+                                                              // return the name of the user's saved documents and the user's email
+                                                              return crow::response(response);
+                                                          }
+                                                          catch (std::exception &e)
+                                                          {
+                                                              std::cerr << e.what() << std::endl;
+                                                              return crow::response(500, "Failed to access profile information");
+                                                          }
+                                                      });
+
+    // chat
+    CROW_ROUTE(app, "/chat").methods("POST"_method)([&app, connectionString](const crow::request &req)
+                                                    {
         auto& session = app.get_context<Session>(req);
         std::string email = session.get("user", "");
-        //if the user isn't logged in then respond with error
         if (email.empty())
         {
             return crow::response(401, "Unauthorized");
         }
+
+        auto data = crow::json::load(req.body);
+        if (!data || !data.has("message"))
+        {
+            return crow::response(400, "Missing chat message");
+        }
+
+        const std::string message = data["message"].s();
+        if (message.empty())
+        {
+            return crow::response(400, "Chat message cannot be empty");
+        }
+        if (GEMINI_API_KEY == "replace-with-gemini-api-key")
+        {
+            return crow::response(500, "Gemini API key placeholder has not been replaced");
+        }
+
+        std::vector<ChatMessage> history;
+        if (data.has("history"))
+        {
+            for (size_t i = 0; i < data["history"].size(); ++i)
+            {
+                const auto& item = data["history"][i];
+                if (!item.has("role") || !item.has("text"))
+                {
+                    return crow::response(400, "Each history entry needs role and text");
+                }
+
+                const std::string role = normalizeChatRole(item["role"].s());
+                if (role.empty())
+                {
+                    return crow::response(400, "History role must be user, assistant, or model");
+                }
+
+                history.push_back({role, item["text"].s()});
+            }
+        }
+
+        std::vector<std::string> requestedDocuments;
+        if (data.has("documentNames"))
+        {
+            for (size_t i = 0; i < data["documentNames"].size(); ++i)
+            {
+                requestedDocuments.push_back(data["documentNames"][i].s());
+            }
+        }
+
         try
         {
-            auto conn = connectToDatabase(connectionString);
-            pqxx::nontransaction nonTransaction(*conn);
-            //get the names of the user's documents
-            pqxx::result docs = nonTransaction.exec("SELECT name FROM documents WHERE email = $1", pqxx::params{email});
-            //get the user's survey preference answers
-            pqxx::result survey = nonTransaction.exec("SELECT * FROM surveys WHERE email = $1", pqxx::params{email});
-            crow::json::wvalue response;
-            response["email"] = email;
+            std::vector<std::string> missingDocuments;
+            const std::vector<StoredDocument> documents =
+                loadDocuments(email, requestedDocuments, connectionString, missingDocuments);
 
-            //store the documents
-            std::vector<std::string> documents;
-            for (auto const& row : docs)
+            if (!missingDocuments.empty())
             {
-                documents.push_back(row["name"].c_str());
+                return crow::response(404, "One or more requested documents were not found");
             }
-            response["documents"] = documents;
-            //store the survey data
-            if (!survey.empty())
+
+            const std::string geminiRequestBody = buildGeminiRequestBody(message, history, documents);
+            const GeminiHttpResponse geminiResponse = sendGeminiRequest(geminiRequestBody);
+
+            if (!geminiResponse.error.empty())
             {
-                crow::json::wvalue surveyData;
-                for (auto const& column : survey[0])
+                return crow::response(502, geminiResponse.error);
+            }
+
+            if (geminiResponse.statusCode < 200 || geminiResponse.statusCode >= 300)
+            {
+                const std::string geminiError = extractGeminiError(geminiResponse.body);
+                if (!geminiError.empty())
                 {
-                    surveyData[column.name()] = column.c_str();
+                    return crow::response(502, geminiError);
                 }
-                response["survey"] = std::move(surveyData);
+                return crow::response(502, "Gemini request failed");
             }
-            else
+
+            const std::string reply = extractGeminiReply(geminiResponse.body);
+            if (reply.empty())
             {
-                response["survey"] = nullptr;
+                return crow::response(502, "Gemini returned an empty response");
             }
-            //return the name of the user's saved documents and the user's email
+
+            std::vector<std::string> usedDocuments;
+            usedDocuments.reserve(documents.size());
+            for (const auto& document : documents)
+            {
+                usedDocuments.push_back(document.name);
+            }
+
+            crow::json::wvalue response;
+            response["reply"] = reply;
+            response["usedDocuments"] = usedDocuments;
             return crow::response(response);
         }
         catch (std::exception& e)
         {
             std::cerr << e.what() << std::endl;
-            return crow::response(500, "Failed to access profile information");
-        }
-
-    });
+            return crow::response(500, "Failed to process chat request");
+        } });
 
     app.bindaddr("0.0.0.0").port(18080).multithreaded().run();
+    curl_global_cleanup();
 }
 
 std::string getConnectionString()
@@ -344,9 +500,9 @@ std::string getConnectionString()
     return validPre.get(connectVar_id);
 }
 
-std::unique_ptr<pqxx::connection> connectToDatabase(const std::string& postgresConnectionString)
+std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresConnectionString)
 {
-    //try to connect to database
+    // try to connect to database
     try
     {
         auto conn = std::make_unique<pqxx::connection>(postgresConnectionString);
@@ -357,27 +513,27 @@ std::unique_ptr<pqxx::connection> connectToDatabase(const std::string& postgresC
         }
         return nullptr;
     }
-    catch (std::exception& e)
+    catch (std::exception &e)
     {
-        //if it failed to connect print out the error message and return a nullptr
+        // if it failed to connect print out the error message and return a nullptr
         std::cerr << e.what() << std::endl;
         return nullptr;
     }
 }
 
-bool checkPassword(const std::string& email, const std::string& password, const std::string& connectionString)
+bool checkPassword(const std::string &email, const std::string &password, const std::string &connectionString)
 {
     try
     {
-        //attempt to connect to the database
+        // attempt to connect to the database
         auto conn = connectToDatabase(connectionString);
         if (!conn)
         {
             return false;
         }
-        //start a transaction
+        // start a transaction
         pqxx::nontransaction nonTransaction(*conn);
-        //compare password in the database and the password the user entered
+        // compare password in the database and the password the user entered
         std::cout << "Checking password" << std::endl;
         pqxx::result res = nonTransaction.exec("SELECT password FROM users WHERE email = $1", pqxx::params{email});
         if (res.empty())
@@ -389,17 +545,257 @@ bool checkPassword(const std::string& email, const std::string& password, const 
             std::string hashedPassword = res[0]["password"].as<std::string>();
             if (crypto_pwhash_str_verify(hashedPassword.c_str(), password.c_str(), password.length()) != 0)
             {
-                //the password is incorrect so return false
+                // the password is incorrect so return false
                 return false;
             }
             else
                 return true;
         }
     }
-    catch (std::exception& e)
+    catch (std::exception &e)
     {
-        //if we have an error printout a message and return false
+        // if we have an error printout a message and return false
         std::cerr << e.what() << std::endl;
         return false;
     }
+}
+
+std::string normalizeChatRole(const std::string &role)
+{
+    std::string normalized = role;
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(),
+                   [](unsigned char c)
+                   { return static_cast<char>(std::tolower(c)); });
+
+    if (normalized == "user")
+    {
+        return "user";
+    }
+    if (normalized == "assistant" || normalized == "model")
+    {
+        return "model";
+    }
+    return "";
+}
+
+std::string guessMimeType(const std::string &fileName)
+{
+    const auto extensionPosition = fileName.find_last_of('.');
+    if (extensionPosition == std::string::npos)
+    {
+        return "application/octet-stream";
+    }
+
+    std::string extension = fileName.substr(extensionPosition);
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char c)
+                   { return static_cast<char>(std::tolower(c)); });
+
+    if (extension == ".pdf")
+    {
+        return "application/pdf";
+    }
+    if (extension == ".txt")
+    {
+        return "text/plain";
+    }
+    if (extension == ".md")
+    {
+        return "text/markdown";
+    }
+    if (extension == ".doc")
+    {
+        return "application/msword";
+    }
+    if (extension == ".docx")
+    {
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+    if (extension == ".rtf")
+    {
+        return "application/rtf";
+    }
+
+    return "application/octet-stream";
+}
+
+std::string base64Encode(const unsigned char *data, size_t size)
+{
+    if (size == 0)
+    {
+        return "";
+    }
+
+    std::string encoded(sodium_base64_ENCODED_LEN(size, sodium_base64_VARIANT_ORIGINAL), '\0');
+    sodium_bin2base64(encoded.data(), encoded.size(), data, size, sodium_base64_VARIANT_ORIGINAL);
+    encoded.resize(std::strlen(encoded.c_str()));
+    return encoded;
+}
+
+std::vector<StoredDocument> loadDocuments(
+    const std::string &email,
+    const std::vector<std::string> &requestedNames,
+    const std::string &connectionString,
+    std::vector<std::string> &missingDocuments)
+{
+    auto conn = connectToDatabase(connectionString);
+    if (!conn)
+    {
+        throw std::runtime_error("Failed to connect to database");
+    }
+
+    pqxx::nontransaction nonTransaction(*conn);
+    std::vector<StoredDocument> documents;
+
+    if (requestedNames.empty())
+    {
+        pqxx::result rows = nonTransaction.exec("SELECT * FROM documents WHERE email = $1 ORDER BY name",
+                                                pqxx::params{email});
+        for (const auto &row : rows)
+        {
+            pqxx::binarystring binaryData(row[2]);
+            documents.push_back({row[1].c_str(),
+                                 guessMimeType(row[1].c_str()),
+                                 base64Encode(binaryData.data(), binaryData.size())});
+        }
+        return documents;
+    }
+
+    for (const auto &requestedName : requestedNames)
+    {
+        pqxx::result rows = nonTransaction.exec("SELECT * FROM documents WHERE email = $1 AND name = $2",
+                                                pqxx::params{email, requestedName});
+        if (rows.empty())
+        {
+            missingDocuments.push_back(requestedName);
+            continue;
+        }
+
+        pqxx::binarystring binaryData(rows[0][2]);
+        documents.push_back({rows[0][1].c_str(),
+                             guessMimeType(rows[0][1].c_str()),
+                             base64Encode(binaryData.data(), binaryData.size())});
+    }
+
+    return documents;
+}
+
+std::string buildGeminiRequestBody(
+    const std::string &message,
+    const std::vector<ChatMessage> &history,
+    const std::vector<StoredDocument> &documents)
+{
+    crow::json::wvalue payload;
+    payload["systemInstruction"]["parts"][0]["text"] = GEMINI_SYSTEM_INSTRUCTION;
+
+    for (size_t i = 0; i < history.size(); ++i)
+    {
+        payload["contents"][i]["role"] = history[i].role;
+        payload["contents"][i]["parts"][0]["text"] = history[i].text;
+    }
+
+    const size_t currentMessageIndex = history.size();
+    payload["contents"][currentMessageIndex]["role"] = "user";
+
+    size_t currentPartIndex = 0;
+    for (const auto &document : documents)
+    {
+        payload["contents"][currentMessageIndex]["parts"][currentPartIndex]["inlineData"]["mimeType"] = document.mimeType;
+        payload["contents"][currentMessageIndex]["parts"][currentPartIndex]["inlineData"]["data"] = document.base64Data;
+        ++currentPartIndex;
+    }
+
+    payload["contents"][currentMessageIndex]["parts"][currentPartIndex]["text"] = message;
+    return payload.dump();
+}
+
+GeminiHttpResponse sendGeminiRequest(const std::string &requestBody)
+{
+    GeminiHttpResponse response;
+    CURL *curl = curl_easy_init();
+    if (!curl)
+    {
+        response.error = "Failed to initialize Gemini HTTP client";
+        return response;
+    }
+
+    std::string responseBody;
+    struct curl_slist *headers = nullptr;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    const std::string apiKeyHeader = "x-goog-api-key: " + GEMINI_API_KEY;
+    headers = curl_slist_append(headers, apiKeyHeader.c_str());
+
+    curl_easy_setopt(curl, CURLOPT_URL, GEMINI_ENDPOINT.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, requestBody.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(requestBody.size()));
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCurlResponse);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBody);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+
+    const CURLcode curlCode = curl_easy_perform(curl);
+    if (curlCode != CURLE_OK)
+    {
+        response.error = curl_easy_strerror(curlCode);
+    }
+
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.statusCode);
+    response.body = std::move(responseBody);
+
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+    return response;
+}
+
+std::string extractGeminiReply(const std::string &responseBody)
+{
+    auto data = crow::json::load(responseBody);
+    if (!data || !data.has("candidates") || data["candidates"].size() == 0)
+    {
+        return "";
+    }
+
+    if (!data["candidates"][0].has("content") || !data["candidates"][0]["content"].has("parts"))
+    {
+        return "";
+    }
+
+    std::string reply;
+    const auto &parts = data["candidates"][0]["content"]["parts"];
+    for (size_t i = 0; i < parts.size(); ++i)
+    {
+        if (!parts[i].has("text"))
+        {
+            continue;
+        }
+
+        if (!reply.empty())
+        {
+            reply += "\n";
+        }
+        reply += parts[i]["text"].s();
+    }
+
+    return reply;
+}
+
+std::string extractGeminiError(const std::string &responseBody)
+{
+    auto data = crow::json::load(responseBody);
+    if (data && data.has("error") && data["error"].has("message"))
+    {
+        return data["error"]["message"].s();
+    }
+    return responseBody;
+}
+
+size_t writeCurlResponse(void *contents, size_t size, size_t nmemb, void *userp)
+{
+    const size_t totalSize = size * nmemb;
+    auto *buffer = static_cast<std::string *>(userp);
+    buffer->append(static_cast<char *>(contents), totalSize);
+    return totalSize;
 }

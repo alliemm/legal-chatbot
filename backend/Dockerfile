@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y \
     autoconf \
     automake \
     libtool \
+    libcurl4-openssl-dev \
     libssl-dev \
     libpq-dev \
     libsodium-dev \
@@ -33,6 +34,7 @@ RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
 RUN /opt/vcpkg/vcpkg install \
     asio \
     crow \
+    curl \
     libenvpp \
     libpqxx
 
@@ -48,4 +50,3 @@ RUN cmake -B build -S . \
 RUN cmake --build build
 
 ENTRYPOINT ["./build/legal_chatbot"]
-
