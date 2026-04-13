@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -11,7 +12,6 @@
 #include "crow/middlewares/session.h"
 #include "libenvpp/env.hpp"
 #include <curl/curl.h>
-#include <pqxx/binarystring>
 #include <pqxx/pqxx>
 #include <sodium.h>
 
@@ -309,9 +309,10 @@ int main()
                     }
                     //start a transaction
                     pqxx::work transaction(*conn);
+                    auto fileData = pqxx::bytes_view{reinterpret_cast<const std::byte*>(part.second.body.data()), part.second.body.size()};
                     //run query to add user survey answers to database
                     pqxx::result res = transaction.exec("INSERT INTO documents VALUES ($1, $2, $3)",
-                        pqxx::params{email, fileName, pqxx::binarystring(part.second.body.data(), part.second.body.size())});
+                        pqxx::params{email, fileName, fileData});
                     //commit the transaction
                     transaction.commit();
                     break;
@@ -653,10 +654,10 @@ std::vector<StoredDocument> loadDocuments(
                                                 pqxx::params{email});
         for (const auto &row : rows)
         {
-            pqxx::binarystring binaryData(row[2]);
+            auto const binaryData = row[2].as<pqxx::bytes>();
             documents.push_back({row[1].c_str(),
                                  guessMimeType(row[1].c_str()),
-                                 base64Encode(binaryData.data(), binaryData.size())});
+                                 base64Encode(reinterpret_cast<const unsigned char*>(binaryData.data()), binaryData.size())});
         }
         return documents;
     }
@@ -671,10 +672,10 @@ std::vector<StoredDocument> loadDocuments(
             continue;
         }
 
-        pqxx::binarystring binaryData(rows[0][2]);
+        auto const binaryData = rows[0][2].as<pqxx::bytes>();
         documents.push_back({rows[0][1].c_str(),
                              guessMimeType(rows[0][1].c_str()),
-                             base64Encode(binaryData.data(), binaryData.size())});
+                             base64Encode(reinterpret_cast<const unsigned char*>(binaryData.data()), binaryData.size())});
     }
 
     return documents;
