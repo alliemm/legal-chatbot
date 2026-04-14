@@ -15,8 +15,9 @@
 #include <pqxx/pqxx>
 #include <sodium.h>
 
-const std::string GEMINI_API_KEY = "replace-with-gemini-api-key";
-const std::string GEMINI_MODEL = "gemini-2.5-flash";
+const char* env_key = std::getenv("GEMINI_API_KEY");
+const std::string GEMINI_API_KEY = (env_key) ? env_key : "";
+const std::string GEMINI_MODEL = "gemini-1.5-flash";
 const std::string GEMINI_ENDPOINT =
     "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent";
 const std::string GEMINI_SYSTEM_INSTRUCTION =
@@ -70,6 +71,10 @@ int main()
     if (sodium_init() < 0)
     {
         return 1;
+    }
+    if (GEMINI_API_KEY.empty()) {
+        std::cerr << "CRITICAL ERROR: GEMINI_API_KEY is not set in the environment!" << std::endl;
+        return 1; // stop the program if the key is missing
     }
     if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK)
     {
