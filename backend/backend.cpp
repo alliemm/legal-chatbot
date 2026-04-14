@@ -17,7 +17,7 @@
 
 const char* env_key = std::getenv("GEMINI_API_KEY");
 const std::string GEMINI_API_KEY = (env_key) ? env_key : "";
-const std::string GEMINI_MODEL = "gemini-3.1-flash-lite";
+const std::string GEMINI_MODEL = "gemini-3-flash-preview";
 const std::string GEMINI_ENDPOINT =
     "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent";
 const std::string GEMINI_SYSTEM_INSTRUCTION = R"(
