@@ -60,7 +60,6 @@ struct GeminiHttpResponse
     std::string error;
 };
 
-std::string getConnectionString();
 std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresConnectionString);
 bool checkPassword(const std::string &email, const std::string &password, const std::string &connectionString);
 std::string normalizeChatRole(const std::string &role);
@@ -97,7 +96,7 @@ int main()
         return 1;
     }
     // get connection string once
-    std::string connectionString = getConnectionString();
+    std::string connectionString = std::getenv("LEGALCHATBOT_CONSTRING");
 
     // setup sessions
     // using file store so that session data is stored in json files
@@ -511,15 +510,6 @@ int main()
 
     app.bindaddr("0.0.0.0").port(18080).multithreaded().run();
     curl_global_cleanup();
-}
-
-std::string getConnectionString()
-{
-    //auto envPre = env::prefix("LEGALCHATBOT");
-    //const auto connectVar_id = envPre.register_required_variable<std::string>("CONSTRING");
-    //auto validPre = envPre.parse_and_validate();
-    //return validPre.get(connectVar_id);
-    return std::getenv("LEGALCHATBOT_CONSTRING");
 }
 
 std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresConnectionString)
