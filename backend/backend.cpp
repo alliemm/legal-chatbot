@@ -515,10 +515,11 @@ int main()
 
 std::string getConnectionString()
 {
-    auto envPre = env::prefix("LEGALCHATBOT");
-    const auto connectVar_id = envPre.register_required_variable<std::string>("CONSTRING");
-    auto validPre = envPre.parse_and_validate();
-    return validPre.get(connectVar_id);
+    //auto envPre = env::prefix("LEGALCHATBOT");
+    //const auto connectVar_id = envPre.register_required_variable<std::string>("CONSTRING");
+    //auto validPre = envPre.parse_and_validate();
+    //return validPre.get(connectVar_id);
+    return std::getenv("LEGALCHATBOT_CONSTRING");
 }
 
 std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresConnectionString)
