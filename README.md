@@ -1,5 +1,5 @@
 # LegalEye 
-**"The "Pocket Lawyer" for Personalized Risk Assessment & Contract Analysis**
+**The "Pocket Lawyer" for Personalized Risk Assessment & Contract Analysis**
 
 LegalEye is an AI-powered legal technology agent designed to democratize access to legal counsel. Unlike traditional legal chatbots that merely summarize text, LegalEye utilizes a **Personalized Risk Engine** to cross-reference document clauses against a user’s specific profile, values, and jurisdiction to flag unique privacy violations and potential lawsuit risks.
 
