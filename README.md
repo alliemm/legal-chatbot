@@ -54,12 +54,12 @@ LegalEye was architected with a security-first mindset to ensure the integrity o
 **Current Phase:** Finalizing cloud infrastructure for Beta Launch.
 
 - [x] Core AI Risk Engine (Gemini Integration)
-- [x] Secure SSDS Backend (Flask/Python)
-- [x] Responsive Dashboard (Vue.js)
-- [ ] **In Progress:** CI/CD Pipeline & AWS/GCP Deployment
-- [ ] **In Progress:** Finalizing SSL/TLS encryption for production traffic
+- [x] Secure SSDS Backend 
+- [x] Responsive Dashboard (Figma)
+- [ ] **In Progress:** Front-end Deployment
+- [ ] **In Progress:** Finalizing AI encryption
 
-*Targeting a live MVP release by [May 4th] to initial beta testers.*
+*Targeting a live MVP release by May 4th to initial beta testers.*
 
 ---
 
