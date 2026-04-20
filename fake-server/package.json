@@ -1,0 +1,12 @@
+{
+  "name": "lexassist-fake-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fake backend with hardcoded responses for frontend/extension development",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
