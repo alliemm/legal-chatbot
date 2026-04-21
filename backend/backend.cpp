@@ -15,6 +15,7 @@
 #include <pqxx/pqxx>
 #include <sodium.h>
 
+const std::string CONNECTION_STRING = std::getenv("LEGALCHATBOT_CONSTRING");
 const char* env_key = std::getenv("GEMINI_API_KEY");
 const std::string GEMINI_API_KEY = (env_key) ? env_key : "";
 const std::string GEMINI_MODEL = "gemini-3-flash-preview";
@@ -60,18 +61,17 @@ struct GeminiHttpResponse
     std::string error;
 };
 
-std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresConnectionString);
-bool checkPassword(const std::string &email, const std::string &password, const std::string &connectionString);
-pqxx::result getUserPreference(const std::string &email, const std::string &connectionString);
-std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string&connectionString, const std::string& chatID);
-bool storeChatMessage(const std::string &email, const std::string&connectionString, const std::string& chatID, const std::string& role, const std::string& message);
+std::unique_ptr<pqxx::connection> connectToDatabase();
+bool checkPassword(const std::string &email, const std::string &password);
+pqxx::result getUserPreference(const std::string &email);
+std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatID);
+bool storeChatMessage(const std::string &email, const std::string& chatID, const std::string& role, const std::string& message);
 std::string normalizeChatRole(const std::string &role);
 std::string guessMimeType(const std::string &fileName);
 std::string base64Encode(const unsigned char *data, size_t size);
 std::vector<StoredDocument> loadDocuments(
     const std::string &email,
     const std::vector<std::string> &requestedNames,
-    const std::string &connectionString,
     std::vector<std::string> &missingDocuments);
 std::string buildGeminiRequestBody(
     const std::string &message,
@@ -98,9 +98,6 @@ int main()
         std::cerr << "Failed to initialize curl" << std::endl;
         return 1;
     }
-    // get connection string once
-    std::string connectionString = std::getenv("LEGALCHATBOT_CONSTRING");
-
     // setup sessions
     // using file store so that session data is stored in json files
     using Session = crow::SessionMiddleware<crow::FileStore>;
@@ -114,7 +111,7 @@ int main()
     CROW_ROUTE(app, "/")([](){ return "This is just a test!"; });
 
     // signup
-    CROW_ROUTE(app, "/signup").methods("POST"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/signup").methods("POST"_method)([&app](const crow::request &req)
                                                       {
         auto data = crow::json::load(req.body);
         //if there is no data or if the data is missing the email or password field return error
@@ -127,7 +124,7 @@ int main()
         std::string email = data["email"].s();
         std::string name = data["name"].s();
         //check if the email is already taken and return error/message saying that email is taken
-        auto conn = connectToDatabase(connectionString);
+        auto conn = connectToDatabase();
         if (!conn)
         {
             return crow::response(500, "Failed to connect to database");
@@ -167,7 +164,7 @@ int main()
         } });
 
     // login
-    CROW_ROUTE(app, "/login").methods("POST"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/login").methods("POST"_method)([&app](const crow::request &req)
                                                      {
         auto data = crow::json::load(req.body);
         //if there is no data or if the data is missing the username or password or email field return error
@@ -178,7 +175,7 @@ int main()
         std::string email = data["email"].s();
         std::string password = data["password"].s();
         //verify that the user exists and used the correct password
-        if (checkPassword(email, password, connectionString))
+        if (checkPassword(email, password))
         {
             auto& session = app.get_context<Session>(req);
             session.set("user", std::string(email));
@@ -204,7 +201,7 @@ int main()
         //return success
         return crow::response(200, "User logged out"); });
     // delete account
-    CROW_ROUTE(app, "/deactivate").methods("DELETE"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/deactivate").methods("DELETE"_method)([&app](const crow::request &req)
                                                             {
         auto& session = app.get_context<Session>(req);
         std::string email = session.get("user", "");
@@ -217,7 +214,7 @@ int main()
         try
         {
             //connect to database
-            auto conn = connectToDatabase(connectionString);
+            auto conn = connectToDatabase();
             if (!conn)
             {
                 return crow::response(500, "Failed to connect to database");
@@ -239,7 +236,7 @@ int main()
         } });
 
     // survey
-    CROW_ROUTE(app, "/survey").methods("POST"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/survey").methods("POST"_method)([&app](const crow::request &req)
     {
         // ensure that user is logged in
         auto& session = app.get_context<Session>(req);
@@ -269,7 +266,7 @@ int main()
         // connect to database
         try
         {
-            auto conn = connectToDatabase(connectionString);
+            auto conn = connectToDatabase();
             if (!conn)
             {
                 return crow::response(500, "Failed to connect to database");
@@ -294,7 +291,7 @@ int main()
     });
 
     // upload
-    CROW_ROUTE(app, "/upload").methods("POST"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/upload").methods("POST"_method)([&app](const crow::request &req)
                                                       {
         //ensure that user is logged in
         auto& session = app.get_context<Session>(req);
@@ -327,7 +324,7 @@ int main()
                 try
                 {
                     //connect to database
-                    auto conn = connectToDatabase(connectionString);
+                    auto conn = connectToDatabase();
                     if (!conn)
                     {
                         return crow::response(500, "Failed to connect to database");
@@ -353,7 +350,7 @@ int main()
         return crow::response(202, "Successfully uploaded file"); });
 
     // profile
-    CROW_ROUTE(app, "/profile").methods("GET"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/profile").methods("GET"_method)([&app](const crow::request &req)
     {
         // ensure that user is logged in
         auto& session = app.get_context<Session>(req);
@@ -365,7 +362,7 @@ int main()
         }
         try
         {
-            auto conn = connectToDatabase(connectionString);
+            auto conn = connectToDatabase();
             pqxx::nontransaction nonTransaction(*conn);
             // get the names of the user's documents
             pqxx::result docs = nonTransaction.exec("SELECT name FROM documents WHERE email = $1", pqxx::params{email});
@@ -406,7 +403,7 @@ int main()
     });
 
     // chat
-    CROW_ROUTE(app, "/chat").methods("POST"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/chat").methods("POST"_method)([&app](const crow::request &req)
                                                     {
         auto& session = app.get_context<Session>(req);
         std::string email = session.get("user", "");
@@ -465,7 +462,7 @@ int main()
         {
             std::vector<std::string> missingDocuments;
             const std::vector<StoredDocument> documents =
-                loadDocuments(email, requestedDocuments, connectionString, missingDocuments);
+                loadDocuments(email, requestedDocuments, missingDocuments);
 
             if (!missingDocuments.empty())
             {
@@ -518,12 +515,12 @@ int main()
     curl_global_cleanup();
 }
 
-std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresConnectionString)
+std::unique_ptr<pqxx::connection> connectToDatabase()
 {
     // try to connect to database
     try
     {
-        auto conn = std::make_unique<pqxx::connection>(postgresConnectionString);
+        auto conn = std::make_unique<pqxx::connection>(CONNECTION_STRING);
         if (conn->is_open())
         {
             std::cout << "Connection to database established!" << std::endl;
@@ -539,12 +536,12 @@ std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresC
     }
 }
 
-bool checkPassword(const std::string &email, const std::string &password, const std::string &connectionString)
+bool checkPassword(const std::string &email, const std::string &password)
 {
     try
     {
         // attempt to connect to the database
-        auto conn = connectToDatabase(connectionString);
+        auto conn = connectToDatabase();
         if (!conn)
         {
             return false;
@@ -577,11 +574,11 @@ bool checkPassword(const std::string &email, const std::string &password, const 
         return false;
     }
 }
-pqxx::result getUserPreference(const std::string &email, const std::string &connectionString)
+pqxx::result getUserPreference(const std::string &email)
 {
     try
     {
-        auto conn = connectToDatabase(connectionString);
+        auto conn = connectToDatabase();
         pqxx::nontransaction nonTransaction(*conn);
         // get the user's survey preference answers
         pqxx::result survey = nonTransaction.exec("SELECT * FROM surveys WHERE email = $1", pqxx::params{email});
@@ -594,11 +591,11 @@ pqxx::result getUserPreference(const std::string &email, const std::string &conn
         return pqxx::result();
     }
 }
-std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string&connectionString, const std::string& chatID)
+std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatID)
 {
     try
     {
-        auto conn = connectToDatabase(connectionString);
+        auto conn = connectToDatabase();
         pqxx::nontransaction nonTransaction(*conn);
         //retrieve all the messages in this chat in asc order so that oldest are first
         pqxx::result messages = nonTransaction.exec("SELECT * FROM chats WHERE email = $1 AND chatid = $2 ORDER BY time ASC", pqxx::params{email, chatID});
@@ -621,11 +618,11 @@ std::vector<ChatMessage> getChatHistory(const std::string &email, const std::str
         return std::vector<ChatMessage>();
     }
 }
-bool storeChatMessage(const std::string &email, const std::string&connectionString, const std::string& chatID, const std::string& role, const std::string& message)
+bool storeChatMessage(const std::string &email, const std::string& chatID, const std::string& role, const std::string& message)
 {
     try
     {
-        auto conn = connectToDatabase(connectionString);
+        auto conn = connectToDatabase();
         pqxx::work transaction(*conn);
         //add the new message to the database
         pqxx::result messages = transaction.exec("INSERT INTO chats (chatid, email, role, content) VALUES ($1, $2, $3, $4)", pqxx::params{chatID, email, role, message});
@@ -714,10 +711,9 @@ std::string base64Encode(const unsigned char *data, size_t size)
 std::vector<StoredDocument> loadDocuments(
     const std::string &email,
     const std::vector<std::string> &requestedNames,
-    const std::string &connectionString,
     std::vector<std::string> &missingDocuments)
 {
-    auto conn = connectToDatabase(connectionString);
+    auto conn = connectToDatabase();
     if (!conn)
     {
         throw std::runtime_error("Failed to connect to database");
