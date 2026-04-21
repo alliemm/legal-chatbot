@@ -63,6 +63,8 @@ struct GeminiHttpResponse
 std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresConnectionString);
 bool checkPassword(const std::string &email, const std::string &password, const std::string &connectionString);
 pqxx::result getUserPreference(const std::string &email, const std::string &connectionString);
+std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string&connectionString, const std::string& chatID);
+bool storeChatMessage(const std::string &email, const std::string&connectionString, const std::string& chatID, const std::string& role, const std::string& message);
 std::string normalizeChatRole(const std::string &role);
 std::string guessMimeType(const std::string &fileName);
 std::string base64Encode(const unsigned char *data, size_t size);
@@ -591,7 +593,51 @@ pqxx::result getUserPreference(const std::string &email, const std::string &conn
         //if we run into an error return an empty result object
         return pqxx::result();
     }
-
+}
+std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string&connectionString, const std::string& chatID)
+{
+    try
+    {
+        auto conn = connectToDatabase(connectionString);
+        pqxx::nontransaction nonTransaction(*conn);
+        //retrieve all the messages in this chat in asc order so that oldest are first
+        pqxx::result messages = nonTransaction.exec("SELECT * FROM chats WHERE email = $1 AND chatid = $2 ORDER BY time ASC", pqxx::params{email, chatID});
+        std::vector<ChatMessage> chatHistory;
+        //loop through the results of the query and add the messages to the chatHistory vector
+        for (const auto& message : messages)
+        {
+            ChatMessage newMessage;
+            newMessage.role = message["role"].as<std::string>();
+            newMessage.text = message["content"].as<std::string>();
+            chatHistory.push_back(newMessage);
+        }
+        //return the chatHistory vector
+        return chatHistory;
+    }
+    catch (std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+        //if we fail for some reason then just return an empty vector
+        return std::vector<ChatMessage>();
+    }
+}
+bool storeChatMessage(const std::string &email, const std::string&connectionString, const std::string& chatID, const std::string& role, const std::string& message)
+{
+    try
+    {
+        auto conn = connectToDatabase(connectionString);
+        pqxx::work transaction(*conn);
+        //add the new message to the database
+        pqxx::result messages = transaction.exec("INSERT INTO chats (chatid, email, role, content) VALUES ($1, $2, $3, $4)", pqxx::params{chatID, email, role, message});
+        //commit the transaction
+        transaction.commit();
+        return true;
+    }
+    catch (std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+        return false;
+    }
 }
 std::string normalizeChatRole(const std::string &role)
 {
