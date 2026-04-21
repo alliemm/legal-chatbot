@@ -64,8 +64,8 @@ struct GeminiHttpResponse
 std::unique_ptr<pqxx::connection> connectToDatabase();
 bool checkPassword(const std::string &email, const std::string &password);
 pqxx::result getUserPreference(const std::string &email);
-std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatID);
-bool storeChatMessage(const std::string &email, const std::string& chatID, const std::string& role, const std::string& message);
+std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatid);
+bool storeChatMessage(const std::string &email, const std::string& chatid, const std::string& role, const std::string& message);
 std::string normalizeChatRole(const std::string &role);
 std::string guessMimeType(const std::string &fileName);
 std::string base64Encode(const unsigned char *data, size_t size);
@@ -417,7 +417,11 @@ int main()
         {
             return crow::response(400, "Missing chat message");
         }
-
+        if (!data.has("chatid"))
+        {
+            return crow::response(400, "Missing chat id");
+        }
+        const std::string chatid = data["chatid"].s();
         const std::string message = data["message"].s();
         if (message.empty())
         {
@@ -427,27 +431,10 @@ int main()
         {
             return crow::response(500, "Gemini API key placeholder has not been replaced");
         }
-
-        std::vector<ChatMessage> history;
-        if (data.has("history"))
-        {
-            for (size_t i = 0; i < data["history"].size(); ++i)
-            {
-                const auto& item = data["history"][i];
-                if (!item.has("role") || !item.has("text"))
-                {
-                    return crow::response(400, "Each history entry needs role and text");
-                }
-
-                const std::string role = normalizeChatRole(item["role"].s());
-                if (role.empty())
-                {
-                    return crow::response(400, "History role must be user, assistant, or model");
-                }
-
-                history.push_back({role, item["text"].s()});
-            }
-        }
+        //get chat history from database
+        std::vector<ChatMessage> history = getChatHistory(email, chatid);
+        //save user's new message to database
+        storeChatMessage(email, chatid, "user", message);
 
         std::vector<std::string> requestedDocuments;
         if (data.has("documentNames"))
@@ -493,6 +480,9 @@ int main()
                 return crow::response(502, "Gemini returned an empty response");
             }
 
+            //store gemini's reply to the user in the database
+            storeChatMessage(email, chatid, "model", reply);
+            
             std::vector<std::string> usedDocuments;
             usedDocuments.reserve(documents.size());
             for (const auto& document : documents)
@@ -591,14 +581,14 @@ pqxx::result getUserPreference(const std::string &email)
         return pqxx::result();
     }
 }
-std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatID)
+std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatid)
 {
     try
     {
         auto conn = connectToDatabase();
         pqxx::nontransaction nonTransaction(*conn);
         //retrieve all the messages in this chat in asc order so that oldest are first
-        pqxx::result messages = nonTransaction.exec("SELECT * FROM chats WHERE email = $1 AND chatid = $2 ORDER BY time ASC", pqxx::params{email, chatID});
+        pqxx::result messages = nonTransaction.exec("SELECT * FROM chats WHERE email = $1 AND chatid = $2 ORDER BY time ASC", pqxx::params{email, chatid});
         std::vector<ChatMessage> chatHistory;
         //loop through the results of the query and add the messages to the chatHistory vector
         for (const auto& message : messages)
@@ -618,14 +608,14 @@ std::vector<ChatMessage> getChatHistory(const std::string &email, const std::str
         return std::vector<ChatMessage>();
     }
 }
-bool storeChatMessage(const std::string &email, const std::string& chatID, const std::string& role, const std::string& message)
+bool storeChatMessage(const std::string &email, const std::string& chatid, const std::string& role, const std::string& message)
 {
     try
     {
         auto conn = connectToDatabase();
         pqxx::work transaction(*conn);
         //add the new message to the database
-        pqxx::result messages = transaction.exec("INSERT INTO chats (chatid, email, role, content) VALUES ($1, $2, $3, $4)", pqxx::params{chatID, email, role, message});
+        pqxx::result messages = transaction.exec("INSERT INTO chats (chatid, email, role, content) VALUES ($1, $2, $3, $4)", pqxx::params{chatid, email, role, message});
         //commit the transaction
         transaction.commit();
         return true;
