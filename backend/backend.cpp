@@ -10,6 +10,7 @@
 #include <vector>
 #include "crow.h"
 #include "crow/middlewares/session.h"
+#include "crow/middlewares/cors.h"
 #include "libenvpp/env.hpp"
 #include <curl/curl.h>
 #include <pqxx/pqxx>
@@ -103,8 +104,14 @@ int main()
     using Session = crow::SessionMiddleware<crow::FileStore>;
     crow::FileStore sessionStore("./sessionData");
     // create app
-    crow::App<crow::CookieParser, Session> app{
-        Session{sessionStore}};
+    crow::App<crow::CookieParser, Session, crow::CORSHandler> app{Session{sessionStore}};
+
+    //setup cors
+    auto& cors = app.get_middleware<crow::CORSHandler>();
+    cors.global()
+        .origin("*") //For now this accepts everything since we don't have the frontend url yet
+        .methods("POST"_method, "GET"_method, "DELETE"_method, "OPTIONS"_method)
+        .headers("Content-Type", "Authorization", "Accept");
 
     app.loglevel(crow::LogLevel::Debug);
 
@@ -482,7 +489,7 @@ int main()
 
             //store gemini's reply to the user in the database
             storeChatMessage(email, chatid, "model", reply);
-            
+
             std::vector<std::string> usedDocuments;
             usedDocuments.reserve(documents.size());
             for (const auto& document : documents)
@@ -501,7 +508,9 @@ int main()
             return crow::response(500, "Failed to process chat request");
         } });
 
-    app.bindaddr("0.0.0.0").port(18080).multithreaded().run();
+    char* envPort = std::getenv("PORT");
+    int port = (envPort) ? std::stoi(envPort) : 18080;
+    app.bindaddr("0.0.0.0").port(port).multithreaded().run();
     curl_global_cleanup();
 }
 
