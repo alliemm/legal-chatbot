@@ -47,6 +47,7 @@ const confirm = ref("");
 
           <button
             @click="router.push('/survey')"
+            :disabled="!name.trim() || !email.trim() || !password.trim() || !confirm.trim() || password !== confirm"
             class="mt-6 self-end rounded-[60px] bg-leaf-deep px-8 py-2 text-white text-[15px] font-semibold transition hover:opacity-90"
             style="width: 140px; height: 37px"
           >

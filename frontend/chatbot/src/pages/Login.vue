@@ -31,7 +31,10 @@ const password = ref("");
             <a href="#" class="hover:underline">Forgot Password?</a>
           </div>
 
-          <button @click="router.push('/dashboard')" class="mt-6 self-end rounded-[60px] bg-leaf-deep px-8 py-2 text-white text-[15px] font-semibold transition hover:opacity-90" style="width: 121px; height: 37px">
+          <button
+           @click="router.push('/dashboard')" 
+           :disabled="!email.trim() || !password.trim()"
+           class="mt-6 self-end rounded-[60px] bg-leaf-deep px-8 py-2 text-white text-[15px] font-semibold transition hover:opacity-90" style="width: 121px; height: 37px">
             Login
           </button>
 
