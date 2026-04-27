@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 640" fill="none">
+  <!-- Sage/muted blob — back layer, lower right -->
+  <path d="M 370,370 C 430,330 560,355 595,445 C 625,520 600,600 510,615 C 430,628 340,585 305,520 C 270,455 310,410 370,370 Z" fill="#8aab9a" opacity="0.65"/>
+
+  <!-- Large light mint blob — middle layer -->
+  <path d="M 110,355 C 55,255 90,90 255,75 C 370,65 490,120 530,210 C 568,295 530,430 460,515 C 395,595 275,600 195,565 C 115,530 160,450 110,355 Z" fill="#78d5b9"/>
+
+  <!-- Dark teal blob — front, upper right -->
+  <path d="M 390,70 C 445,42 590,72 615,178 C 636,270 585,365 525,385 C 470,403 400,345 378,262 C 356,178 345,95 390,70 Z" fill="#1e6d55"/>
+
+  <!-- Small accent circles — left side -->
+  <circle cx="88" cy="218" r="30" fill="#7ab5a0" opacity="0.75"/>
+  <circle cx="62" cy="268" r="13" fill="#0e5c4a"/>
+  <circle cx="72" cy="298" r="9"  fill="#0e5c4a"/>
+
+  <!-- Large accent circle — bottom center-left -->
+  <circle cx="218" cy="582" r="22" fill="#0e5c4a"/>
+
+  <!-- Small droplet / accent shapes — right side -->
+  <ellipse cx="638" cy="308" rx="10" ry="16" fill="#78d5b9" transform="rotate(-20 638 308)"/>
+  <ellipse cx="652" cy="335" rx="7"  ry="11" fill="#78d5b9" opacity="0.7" transform="rotate(-20 652 335)"/>
+
+  <!-- Outline triangle decorators — upper right -->
+  <polygon points="610,52 622,74 598,74" fill="none" stroke="#78d5b9" stroke-width="2.5" opacity="0.8"/>
+  <polygon points="638,92 646,108 630,108" fill="none" stroke="#78d5b9" stroke-width="2" opacity="0.6"/>
+</svg>

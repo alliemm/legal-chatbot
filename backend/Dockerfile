@@ -1,6 +1,8 @@
-FROM ubuntu:24.04
+FROM ubuntu:22.04
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV VCPKG_FORCE_SYSTEM_BINARIES=1
+ENV VCPKG_DEFAULT_TRIPLET=x64-linux
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -25,7 +27,6 @@ RUN apt-get update && apt-get install -y \
     libsodium-dev \
     pkg-config \
     python3 \
-    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
@@ -33,11 +34,11 @@ RUN git clone https://github.com/microsoft/vcpkg.git /opt/vcpkg && \
 
 
 RUN /opt/vcpkg/vcpkg install \
-    asio \
-    crow \
-    curl \
-    libenvpp \
-    libpqxx
+    asio:x64-linux \
+    crow:x64-linux \
+    curl:x64-linux \
+    libenvpp:x64-linux \
+    libpqxx:x64-linux
 
 
 WORKDIR /backend
