@@ -10,6 +10,7 @@
 #include <vector>
 #include "crow.h"
 #include "crow/middlewares/session.h"
+#include "crow/middlewares/cors.h"
 #include "libenvpp/env.hpp"
 #include <curl/curl.h>
 #include <pqxx/pqxx>
