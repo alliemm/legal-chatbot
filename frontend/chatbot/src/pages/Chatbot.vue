@@ -5,20 +5,54 @@ import { Plus, Settings, Search, Send, Smile, MessageSquare, ChevronDown, FileTe
 
 type Source = { name: string; active?: boolean };
 type Message = { from: "user" | "bot"; text: string };
-
+const API_URL = "http://localhost:18080/api/chat";
 const sources = ref<Source[]>([{ name: "Source 1", active: true }, { name: "Source 2" }]);
 const messages = ref<Message[]>([
   { from: "user", text: "Rephrase 'This is an ai chatbot generated for better communication and simpler work flows'" },
   { from: "bot", text: "Thank You :)" },
 ]);
+const isThinking = ref(false);
 const input = ref("");
 
-function send() {
+async function send() {
   const v = input.value.trim();
-  if (!v) return;
-  messages.value.push({ from: "user", text: v });
+  if (!v || isThinking.value) return;
+  messages.value.push({ from: "user", text: v })
+  isThinking.value = true;
+  const userQuery = v;
   input.value = "";
-  setTimeout(() => messages.value.push({ from: "bot", text: "Got it — I'll work on that." }), 400);
+  try {
+    // 2. GET USER PREFERENCES (The "Secret Sauce")
+    // Replace 'fetchPrefsFromDB' with whatever your teammate named their function
+    // Or call your C++ endpoint that returns the DB values
+    const prefsResponse = await fetch("http://localhost:18080/api/user-preferences");
+    const userPrefs = await prefsResponse.json();
+
+    // 3. SEND TO AI WITH CONTEXT
+    const aiResponse = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: userQuery,
+        preferences: userPrefs, // This tells the AI what the user likes!
+        context: "The user is currently looking at a Job Offer Agreement."
+      })
+    });
+
+    const data = await aiResponse.json();
+
+    // Push the actual AI response to the chat
+    messages.value.push({ from: "bot", text: data.reply });
+
+  } catch (error) {
+    console.error("Failed to connect to backend:", error);
+    messages.value.push({
+      from: "bot",
+      text: "Sorry, I'm having trouble connecting to the Legaleye server."
+    });
+  } finally {
+    isThinking.value = false; //stops loading
+  }
 }
 </script>
 
@@ -79,6 +113,10 @@ function send() {
             <div v-if="m.from === 'bot'" class="h-10 w-10 rounded-lg bg-leaf-deep flex items-center justify-center text-white text-sm font-bold">L</div>
             <div class="relative max-w-[80%] rounded-[10px] px-5 py-4 text-[18px] leading-snug bg-white" style="border: 1px solid #ddd; color: rgba(41,41,41,0.85); box-shadow: 0px 1px 2.29px rgba(0,0,0,0.13)">{{ m.text }}</div>
             <div v-if="m.from === 'user'" class="h-10 w-10 rounded-lg bg-mint-soft flex items-center justify-center text-leaf-deep text-sm font-bold">U</div>
+          </div>
+          <div v-if="isThinking" class="flex items-end gap-3 justify-start">
+            <div class="h-10 w-10 rounded-lg bg-leaf-deep flex items-center justify-center text-white text-sm font-bold">L</div>
+            <div class="italic text-gray-400 text-sm">LexAssist is thinking...</div>
           </div>
         </div>
       </div>
