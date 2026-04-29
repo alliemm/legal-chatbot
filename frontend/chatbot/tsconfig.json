@@ -1,10 +1,15 @@
 {
-  "include": ["src/**/*.ts", "src/**/*.vue", "vite.config.ts"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.vue",
+    "vite.config.ts"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
+    "types": ["vite/client", "chrome"], // Added chrome here
     "jsx": "preserve",
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
