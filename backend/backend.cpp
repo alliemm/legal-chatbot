@@ -16,6 +16,7 @@
 #include <pqxx/pqxx>
 #include <sodium.h>
 
+const std::string CONNECTION_STRING = std::getenv("LEGALCHATBOT_CONSTRING");
 const char* env_key = std::getenv("GEMINI_API_KEY");
 const std::string GEMINI_API_KEY = (env_key) ? env_key : "";
 const std::string GEMINI_MODEL = "gemini-3-flash-preview";
@@ -61,16 +62,17 @@ struct GeminiHttpResponse
     std::string error;
 };
 
-std::string getConnectionString();
-std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresConnectionString);
-bool checkPassword(const std::string &email, const std::string &password, const std::string &connectionString);
+std::unique_ptr<pqxx::connection> connectToDatabase();
+bool checkPassword(const std::string &email, const std::string &password);
+pqxx::result getUserPreference(const std::string &email);
+std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatid);
+bool storeChatMessage(const std::string &email, const std::string& chatid, const std::string& role, const std::string& message);
 std::string normalizeChatRole(const std::string &role);
 std::string guessMimeType(const std::string &fileName);
 std::string base64Encode(const unsigned char *data, size_t size);
 std::vector<StoredDocument> loadDocuments(
     const std::string &email,
     const std::vector<std::string> &requestedNames,
-    const std::string &connectionString,
     std::vector<std::string> &missingDocuments);
 std::string buildGeminiRequestBody(
     const std::string &message,
@@ -97,36 +99,39 @@ int main()
         std::cerr << "Failed to initialize curl" << std::endl;
         return 1;
     }
-    // get connection string once
-    std::string connectionString = getConnectionString();
-
     // setup sessions
     // using file store so that session data is stored in json files
     using Session = crow::SessionMiddleware<crow::FileStore>;
     crow::FileStore sessionStore("./sessionData");
     // create app
-    crow::App<crow::CookieParser, Session> app{
-        Session{sessionStore}};
+    crow::App<crow::CookieParser, Session, crow::CORSHandler> app{Session{sessionStore}};
+
+    //setup cors
+    auto& cors = app.get_middleware<crow::CORSHandler>();
+    cors.global()
+        .origin("*") //For now this accepts everything since we don't have the frontend url yet
+        .methods("POST"_method, "GET"_method, "DELETE"_method, "OPTIONS"_method)
+        .headers("Content-Type", "Authorization", "Accept");
 
     app.loglevel(crow::LogLevel::Debug);
 
-    CROW_ROUTE(app, "/")([]()
-                         { return "This is just a test!"; });
+    CROW_ROUTE(app, "/")([](){ return "This is just a test!"; });
 
     // signup
-    CROW_ROUTE(app, "/signup").methods("POST"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/signup").methods("POST"_method)([&app](const crow::request &req)
                                                       {
         auto data = crow::json::load(req.body);
         //if there is no data or if the data is missing the email or password field return error
-        if (!data || !data.has("password") || !data.has("email"))
+        if (!data || !data.has("password") || !data.has("email") || !data.has("name"))
         {
             return crow::response(400, "Missing signup information");
         }
-        //get the email, password, and username values
+        //get the email, password, and name values
         std::string password = data["password"].s();
         std::string email = data["email"].s();
-        //check if the email is already taken and return error/message saying that username is taken
-        auto conn = connectToDatabase(connectionString);
+        std::string name = data["name"].s();
+        //check if the email is already taken and return error/message saying that email is taken
+        auto conn = connectToDatabase();
         if (!conn)
         {
             return crow::response(500, "Failed to connect to database");
@@ -135,7 +140,7 @@ int main()
         pqxx::work transaction(*conn);
         //run query to check if email exists in database
         pqxx::result res = transaction.exec("SELECT * FROM users WHERE email = $1", pqxx::params{email});
-        //if the email isn't in res then return false
+        //if the email isn't taken then insert the user into the database
         if (res.empty())
         {
             //hash password
@@ -150,7 +155,7 @@ int main()
             //convert hashed password to a string
             std::string finalHash = std::string(hashed);
             //add new user information into database
-            transaction.exec("INSERT INTO users VALUES ($1, $2)", pqxx::params{email, finalHash});
+            transaction.exec("INSERT INTO users VALUES ($1, $2, $3)", pqxx::params{email, finalHash, name});
             //end transaction
             transaction.commit();
             //store the current user as authenticated
@@ -166,7 +171,7 @@ int main()
         } });
 
     // login
-    CROW_ROUTE(app, "/login").methods("POST"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/login").methods("POST"_method)([&app](const crow::request &req)
                                                      {
         auto data = crow::json::load(req.body);
         //if there is no data or if the data is missing the username or password or email field return error
@@ -177,7 +182,7 @@ int main()
         std::string email = data["email"].s();
         std::string password = data["password"].s();
         //verify that the user exists and used the correct password
-        if (checkPassword(email, password, connectionString))
+        if (checkPassword(email, password))
         {
             auto& session = app.get_context<Session>(req);
             session.set("user", std::string(email));
@@ -203,7 +208,7 @@ int main()
         //return success
         return crow::response(200, "User logged out"); });
     // delete account
-    CROW_ROUTE(app, "/deactivate").methods("DELETE"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/deactivate").methods("DELETE"_method)([&app](const crow::request &req)
                                                             {
         auto& session = app.get_context<Session>(req);
         std::string email = session.get("user", "");
@@ -216,7 +221,7 @@ int main()
         try
         {
             //connect to database
-            auto conn = connectToDatabase(connectionString);
+            auto conn = connectToDatabase();
             if (!conn)
             {
                 return crow::response(500, "Failed to connect to database");
@@ -238,59 +243,62 @@ int main()
         } });
 
     // survey
-    CROW_ROUTE(app, "/survey").methods("POST"_method)([&app, connectionString](const crow::request &req)
-                                                      {
-                                                          // ensure that user is logged in
-                                                          auto &session = app.get_context<Session>(req);
-                                                          std::string email = session.get("user", "");
-                                                          // if the user isn't logged in then respond with error
-                                                          if (email.empty())
-                                                          {
-                                                              return crow::response(401, "Unauthorized");
-                                                          }
-                                                          // get the body of the request
-                                                          auto data = crow::json::load(req.body);
-                                                          // if there is no data or if the data is missing any of the necessary fields return an error
-                                                          if (!data || !data.has("userType") || !data.has("workedWithLawyer") || !data.has("howOften") || !data.has("typesOfDocuments") || !data.has("biggestConcerns") || !data.has("jargonUnderstanding") || !data.has("outcome"))
-                                                          {
-                                                              return crow::response(400, "Missing survey information");
-                                                          }
-                                                          // get survey answers from request
-                                                          std::string userType = data["userType"].s();
-                                                          std::string workedWithLawyer = data["workedWithLawyer"].s();
-                                                          std::string howOften = data["howOften"].s();
-                                                          std::string typesOfDocuments = data["typesOfDocuments"].s();
-                                                          std::string biggestConcerns = data["biggestConcerns"].s();
-                                                          std::string jargonUnderstanding = data["jargonUnderstanding"].s();
-                                                          std::string outcome = data["outcome"].s();
-                                                          // connect to database
-                                                          try
-                                                          {
-                                                              auto conn = connectToDatabase(connectionString);
-                                                              if (!conn)
-                                                              {
-                                                                  return crow::response(500, "Failed to connect to database");
-                                                              }
-                                                              // start a transaction
-                                                              pqxx::work transaction(*conn);
-                                                              // run query to add user survey answers to database
-                                                              pqxx::result res = transaction.exec("INSERT INTO surveys VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-                                                                                                  pqxx::params{
-                                                                                                      email, userType, workedWithLawyer, howOften, typesOfDocuments,
-                                                                                                      biggestConcerns, jargonUnderstanding, outcome});
-                                                              // commit the transaction
-                                                              transaction.commit();
-                                                              return crow::response(200, "Saved survey results");
-                                                          }
-                                                          catch (std::exception &e)
-                                                          {
-                                                              std::cerr << e.what() << std::endl;
-                                                              return crow::response(500, "Failed to save survey results");
-                                                          }
-                                                      });
+    CROW_ROUTE(app, "/survey").methods("POST"_method)([&app](const crow::request &req)
+    {
+        // ensure that user is logged in
+        auto& session = app.get_context<Session>(req);
+        std::string email = session.get("user", "");
+        // if the user isn't logged in then respond with error
+        if (email.empty())
+        {
+            return crow::response(401, "Unauthorized");
+        }
+        // get the body of the request
+        auto data = crow::json::load(req.body);
+        // if there is no data or if the data is missing any of the necessary fields return an error
+        if (!data || !data.has("userType") || !data.has("workedWithLawyer") || !data.has("howOften") || !data.
+            has("typesOfDocuments") || !data.has("biggestConcerns") || !data.has("jargonUnderstanding") || !data.
+            has("outcome"))
+        {
+            return crow::response(400, "Missing survey information");
+        }
+        // get survey answers from request
+        std::string userType = data["userType"].s();
+        std::string workedWithLawyer = data["workedWithLawyer"].s();
+        std::string howOften = data["howOften"].s();
+        std::string typesOfDocuments = data["typesOfDocuments"].s();
+        std::string biggestConcerns = data["biggestConcerns"].s();
+        std::string jargonUnderstanding = data["jargonUnderstanding"].s();
+        std::string outcome = data["outcome"].s();
+        // connect to database
+        try
+        {
+            auto conn = connectToDatabase();
+            if (!conn)
+            {
+                return crow::response(500, "Failed to connect to database");
+            }
+            // start a transaction
+            pqxx::work transaction(*conn);
+            // run query to add user survey answers to database
+            pqxx::result res = transaction.exec("INSERT INTO surveys VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                                                pqxx::params{
+                                                    email, userType, workedWithLawyer, howOften, typesOfDocuments,
+                                                    biggestConcerns, jargonUnderstanding, outcome
+                                                });
+            // commit the transaction
+            transaction.commit();
+            return crow::response(200, "Saved survey results");
+        }
+        catch (std::exception& e)
+        {
+            std::cerr << e.what() << std::endl;
+            return crow::response(500, "Failed to save survey results");
+        }
+    });
 
     // upload
-    CROW_ROUTE(app, "/upload").methods("POST"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/upload").methods("POST"_method)([&app](const crow::request &req)
                                                       {
         //ensure that user is logged in
         auto& session = app.get_context<Session>(req);
@@ -323,7 +331,7 @@ int main()
                 try
                 {
                     //connect to database
-                    auto conn = connectToDatabase(connectionString);
+                    auto conn = connectToDatabase();
                     if (!conn)
                     {
                         return crow::response(500, "Failed to connect to database");
@@ -349,60 +357,60 @@ int main()
         return crow::response(202, "Successfully uploaded file"); });
 
     // profile
-    CROW_ROUTE(app, "/profile").methods("GET"_method)([&app, connectionString](const crow::request &req)
-                                                      {
-                                                          // ensure that user is logged in
-                                                          auto &session = app.get_context<Session>(req);
-                                                          std::string email = session.get("user", "");
-                                                          // if the user isn't logged in then respond with error
-                                                          if (email.empty())
-                                                          {
-                                                              return crow::response(401, "Unauthorized");
-                                                          }
-                                                          try
-                                                          {
-                                                              auto conn = connectToDatabase(connectionString);
-                                                              pqxx::nontransaction nonTransaction(*conn);
-                                                              // get the names of the user's documents
-                                                              pqxx::result docs = nonTransaction.exec("SELECT name FROM documents WHERE email = $1", pqxx::params{email});
-                                                              // get the user's survey preference answers
-                                                              pqxx::result survey = nonTransaction.exec("SELECT * FROM surveys WHERE email = $1", pqxx::params{email});
-                                                              crow::json::wvalue response;
-                                                              response["email"] = email;
+    CROW_ROUTE(app, "/profile").methods("GET"_method)([&app](const crow::request &req)
+    {
+        // ensure that user is logged in
+        auto& session = app.get_context<Session>(req);
+        std::string email = session.get("user", "");
+        // if the user isn't logged in then respond with error
+        if (email.empty())
+        {
+            return crow::response(401, "Unauthorized");
+        }
+        try
+        {
+            auto conn = connectToDatabase();
+            pqxx::nontransaction nonTransaction(*conn);
+            // get the names of the user's documents
+            pqxx::result docs = nonTransaction.exec("SELECT name FROM documents WHERE email = $1", pqxx::params{email});
+            // get the user's survey preference answers
+            pqxx::result survey = nonTransaction.exec("SELECT * FROM surveys WHERE email = $1", pqxx::params{email});
+            crow::json::wvalue response;
+            response["email"] = email;
 
-                                                              // store the documents
-                                                              std::vector<std::string> documents;
-                                                              for (auto const &row : docs)
-                                                              {
-                                                                  documents.push_back(row["name"].c_str());
-                                                              }
-                                                              response["documents"] = documents;
-                                                              // store the survey data
-                                                              if (!survey.empty())
-                                                              {
-                                                                  crow::json::wvalue surveyData;
-                                                                  for (auto const &column : survey[0])
-                                                                  {
-                                                                      surveyData[column.name()] = column.c_str();
-                                                                  }
-                                                                  response["survey"] = std::move(surveyData);
-                                                              }
-                                                              else
-                                                              {
-                                                                  response["survey"] = nullptr;
-                                                              }
-                                                              // return the name of the user's saved documents and the user's email
-                                                              return crow::response(response);
-                                                          }
-                                                          catch (std::exception &e)
-                                                          {
-                                                              std::cerr << e.what() << std::endl;
-                                                              return crow::response(500, "Failed to access profile information");
-                                                          }
-                                                      });
+            // store the documents
+            std::vector<std::string> documents;
+            for (auto const& row : docs)
+            {
+                documents.push_back(row["name"].c_str());
+            }
+            response["documents"] = documents;
+            // store the survey data
+            if (!survey.empty())
+            {
+                crow::json::wvalue surveyData;
+                for (auto const& column : survey[0])
+                {
+                    surveyData[column.name()] = column.c_str();
+                }
+                response["survey"] = std::move(surveyData);
+            }
+            else
+            {
+                response["survey"] = nullptr;
+            }
+            // return the name of the user's saved documents and the user's email
+            return crow::response(response);
+        }
+        catch (std::exception& e)
+        {
+            std::cerr << e.what() << std::endl;
+            return crow::response(500, "Failed to access profile information");
+        }
+    });
 
     // chat
-    CROW_ROUTE(app, "/chat").methods("POST"_method)([&app, connectionString](const crow::request &req)
+    CROW_ROUTE(app, "/chat").methods("POST"_method)([&app](const crow::request &req)
                                                     {
         auto& session = app.get_context<Session>(req);
         std::string email = session.get("user", "");
@@ -416,7 +424,11 @@ int main()
         {
             return crow::response(400, "Missing chat message");
         }
-
+        if (!data.has("chatid"))
+        {
+            return crow::response(400, "Missing chat id");
+        }
+        const std::string chatid = data["chatid"].s();
         const std::string message = data["message"].s();
         if (message.empty())
         {
@@ -426,27 +438,10 @@ int main()
         {
             return crow::response(500, "Gemini API key placeholder has not been replaced");
         }
-
-        std::vector<ChatMessage> history;
-        if (data.has("history"))
-        {
-            for (size_t i = 0; i < data["history"].size(); ++i)
-            {
-                const auto& item = data["history"][i];
-                if (!item.has("role") || !item.has("text"))
-                {
-                    return crow::response(400, "Each history entry needs role and text");
-                }
-
-                const std::string role = normalizeChatRole(item["role"].s());
-                if (role.empty())
-                {
-                    return crow::response(400, "History role must be user, assistant, or model");
-                }
-
-                history.push_back({role, item["text"].s()});
-            }
-        }
+        //get chat history from database
+        std::vector<ChatMessage> history = getChatHistory(email, chatid);
+        //save user's new message to database
+        storeChatMessage(email, chatid, "user", message);
 
         std::vector<std::string> requestedDocuments;
         if (data.has("documentNames"))
@@ -461,7 +456,7 @@ int main()
         {
             std::vector<std::string> missingDocuments;
             const std::vector<StoredDocument> documents =
-                loadDocuments(email, requestedDocuments, connectionString, missingDocuments);
+                loadDocuments(email, requestedDocuments, missingDocuments);
 
             if (!missingDocuments.empty())
             {
@@ -492,6 +487,9 @@ int main()
                 return crow::response(502, "Gemini returned an empty response");
             }
 
+            //store gemini's reply to the user in the database
+            storeChatMessage(email, chatid, "model", reply);
+
             std::vector<std::string> usedDocuments;
             usedDocuments.reserve(documents.size());
             for (const auto& document : documents)
@@ -510,24 +508,18 @@ int main()
             return crow::response(500, "Failed to process chat request");
         } });
 
-    app.bindaddr("0.0.0.0").port(18080).multithreaded().run();
+    char* envPort = std::getenv("PORT");
+    int port = (envPort) ? std::stoi(envPort) : 18080;
+    app.bindaddr("0.0.0.0").port(port).multithreaded().run();
     curl_global_cleanup();
 }
 
-std::string getConnectionString()
-{
-    auto envPre = env::prefix("LEGALCHATBOT");
-    const auto connectVar_id = envPre.register_required_variable<std::string>("CONSTRING");
-    auto validPre = envPre.parse_and_validate();
-    return validPre.get(connectVar_id);
-}
-
-std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresConnectionString)
+std::unique_ptr<pqxx::connection> connectToDatabase()
 {
     // try to connect to database
     try
     {
-        auto conn = std::make_unique<pqxx::connection>(postgresConnectionString);
+        auto conn = std::make_unique<pqxx::connection>(CONNECTION_STRING);
         if (conn->is_open())
         {
             std::cout << "Connection to database established!" << std::endl;
@@ -543,12 +535,12 @@ std::unique_ptr<pqxx::connection> connectToDatabase(const std::string &postgresC
     }
 }
 
-bool checkPassword(const std::string &email, const std::string &password, const std::string &connectionString)
+bool checkPassword(const std::string &email, const std::string &password)
 {
     try
     {
         // attempt to connect to the database
-        auto conn = connectToDatabase(connectionString);
+        auto conn = connectToDatabase();
         if (!conn)
         {
             return false;
@@ -581,7 +573,68 @@ bool checkPassword(const std::string &email, const std::string &password, const 
         return false;
     }
 }
-
+pqxx::result getUserPreference(const std::string &email)
+{
+    try
+    {
+        auto conn = connectToDatabase();
+        pqxx::nontransaction nonTransaction(*conn);
+        // get the user's survey preference answers
+        pqxx::result survey = nonTransaction.exec("SELECT * FROM surveys WHERE email = $1", pqxx::params{email});
+        return survey;
+    }
+    catch (std::exception &e)
+    {
+        std::cerr << e.what() << std::endl;
+        //if we run into an error return an empty result object
+        return pqxx::result();
+    }
+}
+std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatid)
+{
+    try
+    {
+        auto conn = connectToDatabase();
+        pqxx::nontransaction nonTransaction(*conn);
+        //retrieve all the messages in this chat in asc order so that oldest are first
+        pqxx::result messages = nonTransaction.exec("SELECT * FROM chats WHERE email = $1 AND chatid = $2 ORDER BY time ASC", pqxx::params{email, chatid});
+        std::vector<ChatMessage> chatHistory;
+        //loop through the results of the query and add the messages to the chatHistory vector
+        for (const auto& message : messages)
+        {
+            ChatMessage newMessage;
+            newMessage.role = message["role"].as<std::string>();
+            newMessage.text = message["content"].as<std::string>();
+            chatHistory.push_back(newMessage);
+        }
+        //return the chatHistory vector
+        return chatHistory;
+    }
+    catch (std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+        //if we fail for some reason then just return an empty vector
+        return std::vector<ChatMessage>();
+    }
+}
+bool storeChatMessage(const std::string &email, const std::string& chatid, const std::string& role, const std::string& message)
+{
+    try
+    {
+        auto conn = connectToDatabase();
+        pqxx::work transaction(*conn);
+        //add the new message to the database
+        pqxx::result messages = transaction.exec("INSERT INTO chats (chatid, email, role, content) VALUES ($1, $2, $3, $4)", pqxx::params{chatid, email, role, message});
+        //commit the transaction
+        transaction.commit();
+        return true;
+    }
+    catch (std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+        return false;
+    }
+}
 std::string normalizeChatRole(const std::string &role)
 {
     std::string normalized = role;
@@ -657,10 +710,9 @@ std::string base64Encode(const unsigned char *data, size_t size)
 std::vector<StoredDocument> loadDocuments(
     const std::string &email,
     const std::vector<std::string> &requestedNames,
-    const std::string &connectionString,
     std::vector<std::string> &missingDocuments)
 {
-    auto conn = connectToDatabase(connectionString);
+    auto conn = connectToDatabase();
     if (!conn)
     {
         throw std::runtime_error("Failed to connect to database");

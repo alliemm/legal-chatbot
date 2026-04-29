@@ -5,17 +5,3 @@ services:
       - "18080:18080"
     env_file:
       - ./backend/.env  # tells Docker to grab .env file
-
-    environment:
-      - LEGALCHATBOT_CONSTRING=host=db port=5432 dbname=legal_db user=user password=password
-    depends_on:
-      - db
-
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: legal_db
-    ports:
-      - "5432:5432"
