@@ -162,10 +162,10 @@ export default {
       }
       this.loading = true
       try {
-        const res = await axios.post('http://localhost:18080/signup', {
-          name: this.name,
-          email: this.email,
-          password: this.password
+        const res = await axios.post('https://legal-chatbot-4t8e.onrender.com/signup', {
+          "name": this.name,
+          "email": this.email,
+          "password": this.password
         })
         console.log(res.data)
         this.$router.push('/login')

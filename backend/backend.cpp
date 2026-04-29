@@ -118,8 +118,12 @@ int main()
     CROW_ROUTE(app, "/")([](){ return "This is just a test!"; });
 
     // signup
-    CROW_ROUTE(app, "/signup").methods("POST"_method)([&app](const crow::request &req)
+    CROW_ROUTE(app, "/signup").methods("POST"_method, "OPTIONS"_method)([&app](const crow::request &req)
                                                       {
+        if (req.method == "OPTIONS"_method)
+        {
+            return crow::response(204);
+        }
         auto data = crow::json::load(req.body);
         //if there is no data or if the data is missing the email or password field return error
         if (!data || !data.has("password") || !data.has("email") || !data.has("name"))
