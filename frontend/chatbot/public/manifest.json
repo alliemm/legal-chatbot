@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "LexAssist AI",
+  "name": "LegalEye AI",
   "version": "1.0",
   "permissions": ["sidePanel", "tabs"],
   "host_permissions": ["<all_urls>"],
