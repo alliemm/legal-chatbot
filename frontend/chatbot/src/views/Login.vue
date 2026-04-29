@@ -89,7 +89,7 @@ export default {
       this.error = ''
       this.loading = true
       try {
-        const res = await axios.post('http://localhost:18080/login', {
+        const res = await axios.post('https://legal-chatbot-4t8e.onrender.com/login', {
           email: this.email,
           password: this.password
         })
