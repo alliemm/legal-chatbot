@@ -19,8 +19,10 @@ const login = async() =>{
     const response = await axios.post('https://legal-chatbot-4t8e.onrender.com/login', {
       "email": email.value,
       "password": password.value
-    }, {withCredentials : true});
+    });
     if(response.status === 202){
+      const token = response.data.token;
+      localStorage.setItem('user_token', token);
       console.log("Logged in!");
       router.push('dashboard');
     }

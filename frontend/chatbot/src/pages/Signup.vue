@@ -22,6 +22,9 @@ const signUp = async() =>{
       "email": email.value,
       "password": password.value
     });
+    const token = response.data.token;
+    localStorage.setItem('user_token', token);
+    
     router.push('survey');
   }catch(err: any){
     error.value = "An error occurred during sign up";

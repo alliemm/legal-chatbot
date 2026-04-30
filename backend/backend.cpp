@@ -159,16 +159,20 @@ int main()
             transaction.exec("INSERT INTO users VALUES ($1, $2, $3)", pqxx::params{email, finalHash, name});
             //end transaction
             transaction.commit();
-            //store the current user as authenticated
-            auto& session = app.get_context<Session>(req);
-            session.set("user", std::string(email));
-            return crow::response(201, "Created new account");
+            //send user auth token
+            crow::json::wvalue body;
+            body["token"] = email;
+            body["status"] = "success";
+            return crow::response(201, body);
         }
         else
         {
             //since it failed abort the transaction
             transaction.abort();
-            return crow::response(400, "This email address is already taken");
+            crow::json::wvalue body;
+            body["token"] = email;
+            body["status"] = "failed";
+            return crow::response(400, body);
         } });
 
     // login
@@ -180,47 +184,40 @@ int main()
         {
             return crow::response(400, "Missing login information");
         }
-        crow::response res;
-        res.add_header("Access-Control-Allow-Origin", "http://localhost:5173");
-        res.add_header("Access-Control-Allow-Credentials", "true");
-        res.add_header("Content-Type", "application/json");
 
         std::string email = data["email"].s();
         std::string password = data["password"].s();
         //verify that the user exists and used the correct password
         if (checkPassword(email, password))
         {
-            auto& session = app.get_context<Session>(req);
-            session.set("user", std::string(email));
-            res.code = 202;
-            res.body = "User logged in";
-            return res;
+            crow::json::wvalue body;
+            body["token"] = email;
+            body["status"] = "success";
+            return crow::response(202, body);
         }
         else
         {
-            res.code = 400;
-            res.body = "Incorrect login information";
-            return res;
+            crow::json::wvalue body;
+            body["token"] = "";
+            body["status"] = "failed";
+            return crow::response(400, body);
         } });
     // logout
     CROW_ROUTE(app, "/logout")([&app](const crow::request &req)
                                {
-        auto& session = app.get_context<Session>(req);
+        std::string email = req.get_header_value("Authorization");
         //return error since user isn't logged
-        if (session.get("user", "").empty())
+        if (email.empty())
         {
             return crow::response(400, "Already logged out");
         }
         std::cout << "Logging out" << std::endl;
-        //remove user from session
-        session.remove("user");
         //return success
         return crow::response(200, "User logged out"); });
     // delete account
     CROW_ROUTE(app, "/deactivate").methods("DELETE"_method)([&app](const crow::request &req)
                                                             {
-        auto& session = app.get_context<Session>(req);
-        std::string email = session.get("user", "");
+        std::string email = req.get_header_value("Authorization");
         //if the user isn't logged in then respond with error
         if (email.empty())
         {
@@ -255,8 +252,7 @@ int main()
     CROW_ROUTE(app, "/survey").methods("POST"_method)([&app](const crow::request &req)
     {
         // ensure that user is logged in
-        auto& session = app.get_context<Session>(req);
-        std::string email = session.get("user", "");
+        std::string email = req.get_header_value("Authorization");
         // if the user isn't logged in then respond with error
         if (email.empty())
         {
@@ -310,8 +306,7 @@ int main()
     CROW_ROUTE(app, "/upload").methods("POST"_method)([&app](const crow::request &req)
                                                       {
         //ensure that user is logged in
-        auto& session = app.get_context<Session>(req);
-        std::string email = session.get("user", "");
+        std::string email = req.get_header_value("Authorization");
         //if the user isn't logged in then respond with error
         if (email.empty())
         {
@@ -369,8 +364,7 @@ int main()
     CROW_ROUTE(app, "/profile").methods("GET"_method)([&app](const crow::request &req)
     {
         // ensure that user is logged in
-        auto& session = app.get_context<Session>(req);
-        std::string email = session.get("user", "");
+        std::string email = req.get_header_value("Authorization");
         // if the user isn't logged in then respond with error
         if (email.empty())
         {
@@ -421,8 +415,8 @@ int main()
     // chat
     CROW_ROUTE(app, "/chat").methods("POST"_method)([&app](const crow::request &req)
                                                     {
-        auto& session = app.get_context<Session>(req);
-        std::string email = session.get("user", "");
+        //ensure that the user is logged in
+        std::string email = req.get_header_value("Authorization");
         if (email.empty())
         {
             return crow::response(401, "Unauthorized");
