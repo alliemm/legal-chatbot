@@ -55,7 +55,7 @@ async function send() {
       }
     });
 
-    const data = await aiResponse.data();
+    const data = aiResponse.data;
 
     // Push the actual AI response to the chat
     messages.value.push({ from: "model", text: data.reply });
