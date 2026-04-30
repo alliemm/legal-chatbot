@@ -82,6 +82,7 @@ const getMessages = async () => {
       from: message[0] === 'user' ? 'user' : 'model',
       text: message[1]
     }))
+    messages.value.push(...chatHistory);
 
   } catch (err) {
     console.error(err);

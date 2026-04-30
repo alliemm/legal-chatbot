@@ -112,7 +112,7 @@ int main()
         .origin("http://localhost:5173")
         .methods("POST"_method, "GET"_method, "DELETE"_method, "OPTIONS"_method)
         .allow_credentials()
-        .headers("Content-Type", "Authorization", "Accept");
+        .headers("Content-Type", "Authorization", "Accept", "ChatID");
 
     app.loglevel(crow::LogLevel::Debug);
 
