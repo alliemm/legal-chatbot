@@ -104,7 +104,7 @@ int main()
     using Session = crow::SessionMiddleware<crow::FileStore>;
     crow::FileStore sessionStore("./sessionData");
     // create app
-    crow::App<crow::CookieParser, Session, crow::CORSHandler> app{Session{sessionStore}};
+    crow::App<crow::CORSHandler, crow::CookieParser, Session> app{Session{sessionStore}};
 
     //setup cors
     auto& cors = app.get_middleware<crow::CORSHandler>();
@@ -119,12 +119,8 @@ int main()
     CROW_ROUTE(app, "/")([](){ return "This is just a test!"; });
 
     // signup
-    CROW_ROUTE(app, "/signup").methods("POST"_method, "OPTIONS"_method)([&app](const crow::request &req)
+    CROW_ROUTE(app, "/signup").methods("POST"_method)([&app](const crow::request &req)
                                                       {
-        if (req.method == "OPTIONS"_method)
-        {
-            return crow::response(204);
-        }
         auto data = crow::json::load(req.body);
         //if there is no data or if the data is missing the email or password field return error
         if (!data || !data.has("password") || !data.has("email") || !data.has("name"))
@@ -176,12 +172,8 @@ int main()
         } });
 
     // login
-    CROW_ROUTE(app, "/login").methods("POST"_method, "OPTIONS"_method)([&app](const crow::request &req)
+    CROW_ROUTE(app, "/login").methods("POST"_method)([&app](const crow::request &req)
                                                      {
-        if (req.method == "OPTIONS"_method)
-        {
-            return crow::response(204);
-        }
         auto data = crow::json::load(req.body);
         //if there is no data or if the data is missing the username or password or email field return error
         if (!data || !data.has("email") || !data.has("password"))
@@ -217,13 +209,9 @@ int main()
         //return success
         return crow::response(200, "User logged out"); });
     // delete account
-    CROW_ROUTE(app, "/deactivate").methods("DELETE"_method, "OPTIONS"_method)([&app](const crow::request &req)
+    CROW_ROUTE(app, "/deactivate").methods("DELETE"_method)([&app](const crow::request &req)
                                                             {
         auto& session = app.get_context<Session>(req);
-        if (req.method == "OPTIONS"_method)
-        {
-            return crow::response(204);
-        }
         std::string email = session.get("user", "");
         //if the user isn't logged in then respond with error
         if (email.empty())
@@ -256,12 +244,8 @@ int main()
         } });
 
     // survey
-    CROW_ROUTE(app, "/survey").methods("POST"_method, "OPTIONS"_method)([&app](const crow::request &req)
+    CROW_ROUTE(app, "/survey").methods("POST"_method)([&app](const crow::request &req)
     {
-        if (req.method == "OPTIONS"_method)
-        {
-            return crow::response(204);
-        }
         // ensure that user is logged in
         auto& session = app.get_context<Session>(req);
         std::string email = session.get("user", "");
@@ -315,12 +299,8 @@ int main()
     });
 
     // upload
-    CROW_ROUTE(app, "/upload").methods("POST"_method, "OPTIONS"_method)([&app](const crow::request &req)
+    CROW_ROUTE(app, "/upload").methods("POST"_method)([&app](const crow::request &req)
                                                       {
-        if (req.method == "OPTIONS"_method)
-        {
-            return crow::response(204);
-        }
         //ensure that user is logged in
         auto& session = app.get_context<Session>(req);
         std::string email = session.get("user", "");
@@ -431,12 +411,8 @@ int main()
     });
 
     // chat
-    CROW_ROUTE(app, "/chat").methods("POST"_method, "OPTIONS"_method)([&app](const crow::request &req)
+    CROW_ROUTE(app, "/chat").methods("POST"_method)([&app](const crow::request &req)
                                                     {
-        if (req.method == "OPTIONS"_method)
-        {
-            return crow::response(204);
-        }
         auto& session = app.get_context<Session>(req);
         std::string email = session.get("user", "");
         if (email.empty())
