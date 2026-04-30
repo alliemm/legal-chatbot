@@ -461,6 +461,30 @@ int main()
         }
     });
 
+    //get chat history
+    CROW_ROUTE(app, "/chatHistory").methods("GET"_method)([&app](const crow::request& req)
+    {
+        // ensure that user is logged in
+        std::string email = req.get_header_value("Authorization");
+        // if the user isn't logged in then respond with error
+        if (email.empty())
+        {
+            return crow::response(401, "Unauthorized");
+        }
+        //get the chatid
+        std::string chatid = req.get_header_value("ChatID");
+        std::vector<ChatMessage> history = getChatHistory(email, chatid);
+        //convert to json formate
+        std::vector<crow::json::wvalue> chatHistory;
+        for (const auto& message : history)
+        {
+            crow::json::wvalue::list jsonMessage = {message.role, message.text};
+            chatHistory.push_back(jsonMessage);
+        }
+        crow::json::wvalue result = std::move(chatHistory);
+        return crow::response(200, result);
+    });
+
     // chat
     CROW_ROUTE(app, "/chat").methods("POST"_method)([&app](const crow::request &req)
                                                     {

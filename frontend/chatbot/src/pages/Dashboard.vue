@@ -4,17 +4,22 @@ import { Plus, Search, Settings, MoreVertical } from "lucide-vue-next";
 import axios from "axios";
 import {onMounted, ref} from "vue";
 import {useRouter} from "vue-router";
+import { nanoid } from 'nanoid';
+
 const router = useRouter();
 
 type Notebook = { id: string; title: string; date: string; sources: string; isNew?: boolean };
 
 const NOTEBOOKS = ref<Notebook[]>([]);
 
-const isLoading = ref(false);
 const error = ref("");
+const startNewChat = () => {
+  const newId = nanoid(25);
+  router.push(`/chatbot/${newId}`);
+};
+
 const getNotebooks = async () => {
   try {
-    isLoading.value = true;
     const token = localStorage.getItem('user_token');
     if(!token){
       error.value = "Please login to view this page"
@@ -45,8 +50,6 @@ const getNotebooks = async () => {
   } catch (err) {
     console.error(err);
     error.value = "Failed to load notebooks.";
-  } finally {
-    isLoading.value = false;
   }
 };
 
@@ -67,10 +70,10 @@ onMounted(() => {
           <button class="h-[55px] w-[55px] rounded-full hidden md:flex items-center justify-center" style="background-color: #b8e0d4; box-shadow: 4px 4px 15px rgba(0,0,0,0.25)" aria-label="Search">
             <Search class="h-6 w-6 text-leaf-deep" />
           </button>
-          <RouterLink to="/chatbot" class="hidden md:flex items-center gap-2 h-[55px] rounded-full px-6 text-[18px]" style="background-color: #0e5c4a; color: #86e3ce; box-shadow: 4px 4px 15px rgba(0,0,0,0.25); font-family: Inter, sans-serif">
+          <button @click="startNewChat" class="hidden md:flex items-center gap-2 h-[55px] rounded-full px-6 text-[18px]" style="background-color: #0e5c4a; color: #86e3ce; box-shadow: 4px 4px 15px rgba(0,0,0,0.25); font-family: Inter, sans-serif">
             <span>Add new chat</span>
             <Plus class="h-5 w-5" />
-          </RouterLink>
+          </button>
           <button class="hidden md:flex items-center gap-2 h-[55px] rounded-full px-6 text-[18px]" style="background-color: rgba(184,224,212,0.8); color: #0e5c4a; box-shadow: 4px 4px 15px rgba(0,0,0,0.25); font-family: Inter, sans-serif">
             <Settings class="h-5 w-5" />
             <span>Settings</span>
@@ -82,21 +85,21 @@ onMounted(() => {
     <main class="mx-auto max-w-[1440px] px-8 py-12">
       <h1 class="text-[40px] font-extrabold" style="color: #154939">Recent notebooks</h1>
       <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-        <template v-for="(notebook, i) in NOTEBOOKS" :key="i">
-          <RouterLink
-            v-if="notebook.isNew"
-            to="/chatbot"
-            class="group relative flex flex-col items-center justify-center rounded-[50px] aspect-[368/348] transition hover:scale-[1.02]"
-            style="background-color: rgba(120,213,185,0.7)"
+        <template v-for="(notebook, i) in NOTEBOOKS" :key="notebook.id">
+          <div
+              v-if="notebook.isNew"
+              @click="startNewChat"
+              class="group relative flex flex-col items-center justify-center rounded-[50px] aspect-[368/348] transition hover:scale-[1.02] cursor-pointer"
+              style="background-color: rgba(120,213,185,0.7)"
           >
             <Plus class="h-24 w-24" style="color: #154939" :stroke-width="2.5" />
             <span class="mt-4 text-[32px] font-extrabold text-center px-6" style="color: #154939">Add new chat</span>
-          </RouterLink>
+          </div>
           <RouterLink
-            v-else
-            to="/chatbot"
-            class="group relative flex flex-col rounded-[50px] aspect-[368/348] p-8 transition hover:scale-[1.02]"
-            style="background-color: rgba(120,213,185,0.7)"
+              v-else
+              :to="`/chatbot/${notebook.id}`"
+              class="group relative flex flex-col rounded-[50px] aspect-[368/348] p-8 transition hover:scale-[1.02]"
+              style="background-color: rgba(120,213,185,0.7)"
           >
             <button class="absolute top-5 right-5 text-leaf-deep/70 hover:text-leaf-deep" @click.prevent aria-label="More options">
               <MoreVertical class="h-6 w-6" />

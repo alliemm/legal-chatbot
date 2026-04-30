@@ -1,18 +1,27 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import {onMounted, ref} from "vue";
 import Logo from "@/components/Logo.vue";
 import { Plus, Settings, Search, Send, Smile, MessageSquare, ChevronDown, FileText } from "lucide-vue-next";
+import axios from "axios";
+import {useRouter, useRoute} from "vue-router";
 
 type Source = { name: string; active?: boolean };
-type Message = { from: "user" | "bot"; text: string };
-const API_URL = "http://localhost:18080/api/chat";
+type Message = { from: "user" | "model"; text: string };
+const API_URL = "https://legal-chatbot-4t8e.onrender.com/chat";
 const sources = ref<Source[]>([{ name: "Source 1", active: true }, { name: "Source 2" }]);
 const messages = ref<Message[]>([
   { from: "user", text: "Rephrase 'This is an ai chatbot generated for better communication and simpler work flows'" },
-  { from: "bot", text: "Thank You :)" },
+  { from: "model", text: "Thank You :)" },
 ]);
 const isThinking = ref(false);
 const input = ref("");
+
+const router = useRouter();
+const route = useRoute()
+
+const chatID = route.params.id as string
+
+const error = ref("");
 
 async function send() {
   const v = input.value.trim();
@@ -42,18 +51,46 @@ async function send() {
     const data = await aiResponse.json();
 
     // Push the actual AI response to the chat
-    messages.value.push({ from: "bot", text: data.reply });
+    messages.value.push({ from: "model", text: data.reply });
 
   } catch (error) {
     console.error("Failed to connect to backend:", error);
     messages.value.push({
-      from: "bot",
+      from: "model",
       text: "Sorry, I'm having trouble connecting to the Legaleye server."
     });
   } finally {
     isThinking.value = false; //stops loading
   }
 }
+const getMessages = async () => {
+  try {
+    const token = localStorage.getItem('user_token');
+    if(!token){
+      error.value = "Please login to view this page"
+      router.push('/login');
+      return
+    }
+    const response = await axios.get('https://legal-chatbot-4t8e.onrender.com/chatHistory', {
+      headers: {
+        Authorization: token,
+        ChatID : chatID
+      }
+    });
+    const data = response.data;
+    const chatHistory = data.map((message: any) =>({
+      from: message[0] === 'user' ? 'user' : 'model',
+      text: message[1]
+    }))
+
+  } catch (err) {
+    console.error(err);
+    error.value = "Failed to load chat history.";
+  }
+};
+onMounted(() => {
+  getMessages();
+});
 </script>
 
 <template>
@@ -110,7 +147,7 @@ async function send() {
       <div class="flex-1 px-6 md:px-10 py-8 overflow-y-auto">
         <div class="mx-auto max-w-3xl flex flex-col gap-6">
           <div v-for="(m, i) in messages" :key="i" class="flex items-end gap-3" :class="m.from === 'user' ? 'justify-end' : 'justify-start'">
-            <div v-if="m.from === 'bot'" class="h-10 w-10 rounded-lg bg-leaf-deep flex items-center justify-center text-white text-sm font-bold">L</div>
+            <div v-if="m.from === 'model'" class="h-10 w-10 rounded-lg bg-leaf-deep flex items-center justify-center text-white text-sm font-bold">L</div>
             <div class="relative max-w-[80%] rounded-[10px] px-5 py-4 text-[18px] leading-snug bg-white" style="border: 1px solid #ddd; color: rgba(41,41,41,0.85); box-shadow: 0px 1px 2.29px rgba(0,0,0,0.13)">{{ m.text }}</div>
             <div v-if="m.from === 'user'" class="h-10 w-10 rounded-lg bg-mint-soft flex items-center justify-center text-leaf-deep text-sm font-bold">U</div>
           </div>
