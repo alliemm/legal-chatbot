@@ -32,22 +32,30 @@ async function send() {
     // 2. GET USER PREFERENCES (The "Secret Sauce")
     // Replace 'fetchPrefsFromDB' with whatever your teammate named their function
     // Or call your C++ endpoint that returns the DB values
-    const prefsResponse = await fetch("https://legal-chatbot-4t8e.onrender.com/userPreferences");
-    const userPrefs = await prefsResponse.json();
+    const token = localStorage.getItem('user_token');
+    if(!token){
+      error.value = "Please login to view this page"
+      router.push('/login');
+      return
+    }
+    const prefsResponse = await axios.get('https://legal-chatbot-4t8e.onrender.com/notebooks', {
+      headers: {
+        Authorization: token
+      }});
+    const userPrefs = await prefsResponse.data;
 
     // 3. SEND TO AI WITH CONTEXT
-    const aiResponse = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json",
-                  "ChatID": chatID},
-      body: JSON.stringify({
-        message: userQuery,
-        preferences: userPrefs, // This tells the AI what the user likes!
-        context: "The user is currently looking at a Job Offer Agreement."
-      })
+    const aiResponse = await axios.post(API_URL, {
+      message: userQuery,
+      preferences: userPrefs,
+      context: "The user is currently looking at a Job Offer Agreement."},
+        {headers: {
+        Authorization: token,
+        ChatID: chatID
+      }
     });
 
-    const data = await aiResponse.json();
+    const data = await aiResponse.data();
 
     // Push the actual AI response to the chat
     messages.value.push({ from: "model", text: data.reply });

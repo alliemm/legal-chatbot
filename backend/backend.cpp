@@ -66,6 +66,7 @@ std::unique_ptr<pqxx::connection> connectToDatabase();
 bool checkPassword(const std::string &email, const std::string &password);
 crow::json::wvalue getUserPreference(const std::string &email);
 std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatid);
+std::string getChatTitle(const std::string &email, const std::string &chatid);
 bool storeChatMessage(const std::string &email, const std::string& chatid, const std::string& role, const std::string& message, const std::string& title);
 std::string normalizeChatRole(const std::string &role);
 std::string guessMimeType(const std::string &fileName);
@@ -509,18 +510,19 @@ int main()
         {
             return crow::response(401, "Unauthorized");
         }
+        //get chat id from headers
+        const std::string chatid = req.get_header_value("ChatID");
 
         auto data = crow::json::load(req.body);
         if (!data || !data.has("message"))
         {
             return crow::response(400, "Missing chat message");
         }
-        if (!data.has("chatid"))
+        if (chatid.empty())
         {
             return crow::response(400, "Missing chat id");
         }
-        const std::string chatid = data["chatid"].s();
-        const std::string title = data["title"].s();
+        const std::string title = getChatTitle(email, chatid);
         const std::string message = data["message"].s();
         if (message.empty())
         {
@@ -696,6 +698,22 @@ crow::json::wvalue getUserPreference(const std::string &email)
         std::cerr << e.what() << std::endl;
         //if we run into an error return an empty result object
         return crow::json::wvalue::list();
+    }
+}
+std::string getChatTitle(const std::string &email, const std::string &chatid)
+{
+    try
+    {
+        auto conn = connectToDatabase();
+        pqxx::nontransaction nonTransaction(*conn);
+        //retrieve chat title from the database
+        pqxx::result title = nonTransaction.exec("SELECT title FROM chats WHERE email = $1 AND chatid = $2", pqxx::params{email, chatid});
+        return title[0][0].as<std::string>();
+    }
+    catch (std::exception& e)
+    {
+        std::cerr << e.what() << std::endl;
+        return "";
     }
 }
 std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatid)
