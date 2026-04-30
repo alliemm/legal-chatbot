@@ -29,14 +29,12 @@ const getNotebooks = async () => {
     });
 
     const data = response.data;
-
-    // Transform the Backend Object { "id": ["Title", "Date"] } into our Array
     const fetchedNotebooks = Object.entries(data)
         .map(([id, info]: any) => ({
           id: id,
-          title: info[0], // Title from index 0
-          date: info[1],  // Date from index 1
-          sources: "0 sources", // Backend doesn't provide this yet, so we'll default it
+          title: info[0],
+          date: info[1],
+          sources: info[2] + " sources",
           isNew: false
         }));
     console.log("Got Notebooks!")

@@ -312,12 +312,18 @@ int main()
         {
             return crow::response(401, "Unauthorized");
         }
+        std::string chatid;
         //get the file
         crow::multipart::message_view fileMessage(req);
         for (const auto& part : fileMessage.part_map)
         {
             const auto& partName = part.first;
             const auto& partValue = part.second;
+            //get the chatid
+            if ("chatid" == partName)
+            {
+                chatid = partValue.body;
+            }
             if ("InputFile" == partName)
             {
                 auto fileHeaders = partValue.headers.find("Content-Disposition");
@@ -343,9 +349,9 @@ int main()
                     //start a transaction
                     pqxx::work transaction(*conn);
                     auto fileData = pqxx::bytes_view{reinterpret_cast<const std::byte*>(part.second.body.data()), part.second.body.size()};
-                    //run query to add user survey answers to database
-                    pqxx::result res = transaction.exec("INSERT INTO documents VALUES ($1, $2, $3)",
-                        pqxx::params{email, fileName, fileData});
+                    //run query to add the file to the database
+                    pqxx::result res = transaction.exec("INSERT INTO documents VALUES ($1, $2, $3, $4)",
+                        pqxx::params{email, fileName, fileData, chatid});
                     //commit the transaction
                     transaction.commit();
                     break;
@@ -412,41 +418,48 @@ int main()
         }
     });
     //get notebooks
-    CROW_ROUTE(app, "/notebooks").methods("GET"_method)([&app](const crow::request &req)
-   {
-       // ensure that user is logged in
-       std::string email = req.get_header_value("Authorization");
-       // if the user isn't logged in then respond with error
-       if (email.empty())
-       {
-           return crow::response(401, "Unauthorized");
-       }
-       try
-       {
-           auto conn = connectToDatabase();
-           pqxx::nontransaction nonTransaction(*conn);
-           // get the all the user's chat ids
-           pqxx::result chatIDs = nonTransaction.exec("SELECT chatid FROM chats WHERE email = $1", pqxx::params{email});
-           crow::json::wvalue body;
-           // get the titles for each of the chats
-           for (auto const& row : chatIDs)
-           {
-               std::string chatid = row[0].c_str();
-               pqxx::result notebookInfo = nonTransaction.exec("SELECT title, TO_CHAR(MIN(time), 'YYYY-MM-DD HH24:MI:SS') FROM chats WHERE chatid = $1 GROUP BY title", pqxx::params{chatid});
-               if (!notebookInfo.empty()) {
-                std::string titleString = notebookInfo[0][0].as<std::string>();
-                std::string dateString = notebookInfo[0][1].as<std::string>();
-                body[chatid] = crow::json::wvalue::list({titleString, dateString});
+    CROW_ROUTE(app, "/notebooks").methods("GET"_method)([&app](const crow::request& req)
+    {
+        // ensure that user is logged in
+        std::string email = req.get_header_value("Authorization");
+        // if the user isn't logged in then respond with error
+        if (email.empty())
+        {
+            return crow::response(401, "Unauthorized");
+        }
+        try
+        {
+            auto conn = connectToDatabase();
+            pqxx::nontransaction nonTransaction(*conn);
+            // get the all the user's chat ids
+            pqxx::result chatIDs = nonTransaction.
+                exec("SELECT chatid FROM chats WHERE email = $1", pqxx::params{email});
+            crow::json::wvalue body;
+            // get the titles and date for each notebook
+            for (auto const& row : chatIDs)
+            {
+                std::string chatid = row[0].c_str();
+                pqxx::result notebookInfo = nonTransaction.exec(
+                    "SELECT title, TO_CHAR(MIN(time), 'Mon DD, YYYY') FROM chats WHERE chatid = $1 GROUP BY title",
+                    pqxx::params{chatid});
+                if (!notebookInfo.empty())
+                {
+                    std::string titleString = notebookInfo[0][0].as<std::string>();
+                    std::string dateString = notebookInfo[0][1].as<std::string>();
+                    //get the number of sources
+                    pqxx::result sources = nonTransaction.exec("SELECT COUNT(name) FROM documents WHERE chatid = $1",pqxx::params{chatid});
+                    int numSources = sources[0][0].as<int>();
+                    body[chatid] = crow::json::wvalue::list({titleString, dateString, numSources});
+                }
             }
-           }
-           return crow::response(200, body);
-       }
-       catch (std::exception& e)
-       {
-           std::cerr << e.what() << std::endl;
-           return crow::response(500, "Failed to access notebooks");
-       }
-   });
+            return crow::response(200, body);
+        }
+        catch (std::exception& e)
+        {
+            std::cerr << e.what() << std::endl;
+            return crow::response(500, "Failed to access notebooks");
+        }
+    });
 
     // chat
     CROW_ROUTE(app, "/chat").methods("POST"_method)([&app](const crow::request &req)
