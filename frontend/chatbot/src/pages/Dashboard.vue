@@ -21,6 +21,7 @@ const getNotebooks = async () => {
       router.push('/login');
       return
     }
+    console.log("IN HERE")
     const response = await axios.get('https://legal-chatbot-4t8e.onrender.com/notebooks', {
       headers: {
         Authorization: token
@@ -38,7 +39,7 @@ const getNotebooks = async () => {
           sources: "0 sources", // Backend doesn't provide this yet, so we'll default it
           isNew: false
         }));
-
+    console.log("Got Notebooks!")
     NOTEBOOKS.value = [
       { id: "new", title: "Add new chat", date: "", sources: "", isNew: true },
       { id: "2", title: "Lease Agreement", date: "2 April 2026", sources: "3 sources" },

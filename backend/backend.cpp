@@ -428,7 +428,6 @@ int main()
            // get the all the user's chat ids
            pqxx::result chatIDs = nonTransaction.exec("SELECT chatid FROM chats WHERE email = $1", pqxx::params{email});
            crow::json::wvalue body;
-
            // get the titles for each of the chats
            for (auto const& row : chatIDs)
            {
@@ -445,7 +444,7 @@ int main()
        catch (std::exception& e)
        {
            std::cerr << e.what() << std::endl;
-           return crow::response(500, "Failed to access profile information");
+           return crow::response(500, "Failed to access notebooks");
        }
    });
 
