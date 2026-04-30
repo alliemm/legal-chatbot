@@ -66,7 +66,7 @@ std::unique_ptr<pqxx::connection> connectToDatabase();
 bool checkPassword(const std::string &email, const std::string &password);
 pqxx::result getUserPreference(const std::string &email);
 std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatid);
-bool storeChatMessage(const std::string &email, const std::string& chatid, const std::string& role, const std::string& message);
+bool storeChatMessage(const std::string &email, const std::string& chatid, const std::string& role, const std::string& message, const std::string& title);
 std::string normalizeChatRole(const std::string &role);
 std::string guessMimeType(const std::string &fileName);
 std::string base64Encode(const unsigned char *data, size_t size);
@@ -411,6 +411,43 @@ int main()
             return crow::response(500, "Failed to access profile information");
         }
     });
+    //get notebooks
+    CROW_ROUTE(app, "/notebooks").methods("GET"_method)([&app](const crow::request &req)
+   {
+       // ensure that user is logged in
+       std::string email = req.get_header_value("Authorization");
+       // if the user isn't logged in then respond with error
+       if (email.empty())
+       {
+           return crow::response(401, "Unauthorized");
+       }
+       try
+       {
+           auto conn = connectToDatabase();
+           pqxx::nontransaction nonTransaction(*conn);
+           // get the all the user's chat ids
+           pqxx::result chatIDs = nonTransaction.exec("SELECT chatid FROM chats WHERE email = $1", pqxx::params{email});
+           crow::json::wvalue body;
+
+           // get the titles for each of the chats
+           for (auto const& row : chatIDs)
+           {
+               std::string chatid = row[0].c_str();
+               pqxx::result notebookInfo = nonTransaction.exec("SELECT title, TO_CHAR(MIN(time), 'YYYY-MM-DD HH24:MI:SS') FROM chats WHERE chatid = $1 GROUP BY title", pqxx::params{chatid});
+               if (!notebookInfo.empty()) {
+                std::string titleString = notebookInfo[0][0].as<std::string>();
+                std::string dateString = notebookInfo[0][1].as<std::string>();
+                body[chatid] = crow::json::wvalue::list({titleString, dateString});
+            }
+           }
+           return crow::response(200, body);
+       }
+       catch (std::exception& e)
+       {
+           std::cerr << e.what() << std::endl;
+           return crow::response(500, "Failed to access profile information");
+       }
+   });
 
     // chat
     CROW_ROUTE(app, "/chat").methods("POST"_method)([&app](const crow::request &req)
@@ -432,6 +469,7 @@ int main()
             return crow::response(400, "Missing chat id");
         }
         const std::string chatid = data["chatid"].s();
+        const std::string title = data["title"].s();
         const std::string message = data["message"].s();
         if (message.empty())
         {
@@ -444,7 +482,7 @@ int main()
         //get chat history from database
         std::vector<ChatMessage> history = getChatHistory(email, chatid);
         //save user's new message to database
-        storeChatMessage(email, chatid, "user", message);
+        storeChatMessage(email, chatid, "user", message, title);
 
         std::vector<std::string> requestedDocuments;
         if (data.has("documentNames"))
@@ -491,7 +529,7 @@ int main()
             }
 
             //store gemini's reply to the user in the database
-            storeChatMessage(email, chatid, "model", reply);
+            storeChatMessage(email, chatid, "model", reply, title);
 
             std::vector<std::string> usedDocuments;
             usedDocuments.reserve(documents.size());
@@ -620,14 +658,14 @@ std::vector<ChatMessage> getChatHistory(const std::string &email, const std::str
         return std::vector<ChatMessage>();
     }
 }
-bool storeChatMessage(const std::string &email, const std::string& chatid, const std::string& role, const std::string& message)
+bool storeChatMessage(const std::string &email, const std::string& chatid, const std::string& role, const std::string& message, const std::string& title)
 {
     try
     {
         auto conn = connectToDatabase();
         pqxx::work transaction(*conn);
         //add the new message to the database
-        pqxx::result messages = transaction.exec("INSERT INTO chats (chatid, email, role, content) VALUES ($1, $2, $3, $4)", pqxx::params{chatid, email, role, message});
+        pqxx::result messages = transaction.exec("INSERT INTO chats (chatid, email, role, content, title) VALUES ($1, $2, $3, $4, $5)", pqxx::params{chatid, email, role, message, title});
         //commit the transaction
         transaction.commit();
         return true;

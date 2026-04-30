@@ -1,16 +1,63 @@
 <script setup lang="ts">
 import Logo from "@/components/Logo.vue";
 import { Plus, Search, Settings, MoreVertical } from "lucide-vue-next";
+import axios from "axios";
+import {onMounted, ref} from "vue";
+import {useRouter} from "vue-router";
+const router = useRouter();
 
-type Notebook = { title: string; date: string; sources: string; isNew?: boolean };
+type Notebook = { id: string; title: string; date: string; sources: string; isNew?: boolean };
 
-const NOTEBOOKS: Notebook[] = [
-  { title: "Add new chat", date: "", sources: "", isNew: true },
-  { title: "Lease Agreement", date: "2 April 2026", sources: "3 sources" },
-  { title: "School Assignment", date: "2 April 2026", sources: "3 sources" },
-  { title: "School Assignment", date: "2 April 2026", sources: "2 sources" },
-  { title: "Job offer contract", date: "2 April 2026", sources: "2 sources" },
-];
+const NOTEBOOKS = ref<Notebook[]>([]);
+
+const isLoading = ref(false);
+const error = ref("");
+const getNotebooks = async () => {
+  try {
+    isLoading.value = true;
+    const token = localStorage.getItem('user_token');
+    if(!token){
+      error.value = "Please login to view this page"
+      router.push('/login');
+      return
+    }
+    const response = await axios.get('https://legal-chatbot-4t8e.onrender.com/notebooks', {
+      headers: {
+        Authorization: token
+      }
+    });
+
+    const data = response.data;
+
+    // Transform the Backend Object { "id": ["Title", "Date"] } into our Array
+    const fetchedNotebooks = Object.entries(data)
+        .map(([id, info]: any) => ({
+          id: id,
+          title: info[0], // Title from index 0
+          date: info[1],  // Date from index 1
+          sources: "0 sources", // Backend doesn't provide this yet, so we'll default it
+          isNew: false
+        }));
+
+    NOTEBOOKS.value = [
+      { id: "new", title: "Add new chat", date: "", sources: "", isNew: true },
+      { id: "2", title: "Lease Agreement", date: "2 April 2026", sources: "3 sources" },
+      { id: "3", title: "School Assignment", date: "2 April 2026", sources: "3 sources" },
+      { id: "4", title: "School Assignment", date: "2 April 2026", sources: "2 sources" },
+      { id: "5", title: "Job offer contract", date: "2 April 2026", sources: "2 sources" },
+      ...fetchedNotebooks
+    ];
+  } catch (err) {
+    console.error(err);
+    error.value = "Failed to load notebooks.";
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+onMounted(() => {
+  getNotebooks();
+});
 </script>
 
 <template>
