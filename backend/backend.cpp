@@ -109,7 +109,7 @@ int main()
     //setup cors
     auto& cors = app.get_middleware<crow::CORSHandler>();
     cors.global()
-        .origin("*") //For now this accepts everything since we don't have the frontend url yet
+        .origin("http://localhost:5173")
         .methods("POST"_method, "GET"_method, "DELETE"_method, "OPTIONS"_method)
         .headers("Content-Type", "Authorization", "Accept");
 

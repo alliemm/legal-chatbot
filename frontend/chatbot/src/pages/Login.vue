@@ -3,10 +3,35 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import lawBooks from "@/assets/law-books.png";
 import surveyBlob from "@/assets/survey-blob.svg";
+import axios from "axios";
 
 const router = useRouter();
 const email = ref("");
 const password = ref("");
+const isLoading = ref(false);
+const error = ref("");
+
+const login = async() =>{
+  isLoading.value = true;
+  error.value = "";
+  console.log("IN HERE")
+  try{
+    const response = await axios.post('https://legal-chatbot-4t8e.onrender.com/login', {
+      "email": email.value,
+      "password": password.value
+    }, {withCredentials : true});
+    if(response.status === 202){
+      console.log("Logged in!");
+      router.push('dashboard');
+    }
+  }catch(err: any){
+    error.value = "An error occurred during login";
+    console.error("Error during login", err);
+  }finally{
+    isLoading.value = false;
+  }
+
+}
 </script>
 
 <template>
@@ -32,8 +57,8 @@ const password = ref("");
           </div>
 
           <button
-           @click="router.push('/dashboard')" 
-           :disabled="!email.trim() || !password.trim()"
+           @click="login"
+           :disabled="isLoading || !email.trim() || !password.trim()"
            class="mt-6 self-end rounded-[60px] bg-leaf-deep px-8 py-2 text-white text-[15px] font-semibold transition hover:opacity-90" style="width: 121px; height: 37px">
             Login
           </button>

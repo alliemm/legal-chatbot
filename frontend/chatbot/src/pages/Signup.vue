@@ -3,12 +3,34 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import lawBooks from "@/assets/law-books.png";
 import surveyBlob from "@/assets/survey-blob.svg";
+import axios from "axios";
 
 const router = useRouter();
 const name = ref("");
 const email = ref("");
 const password = ref("");
 const confirm = ref("");
+const isLoading = ref(false);
+const error = ref("");
+
+const signUp = async() =>{
+  isLoading.value = true;
+  error.value = "";
+  try{
+    const response = await axios.post('https://legal-chatbot-4t8e.onrender.com/signup', {
+      "name": name.value,
+      "email": email.value,
+      "password": password.value
+    });
+    router.push('survey');
+  }catch(err: any){
+    error.value = "An error occurred during sign up";
+    console.error("Error during signup", err);
+  }finally{
+    isLoading.value = false;
+  }
+
+}
 </script>
 
 <template>
@@ -46,8 +68,8 @@ const confirm = ref("");
           </div>
 
           <button
-            @click="router.push('/survey')"
-            :disabled="!name.trim() || !email.trim() || !password.trim() || !confirm.trim() || password !== confirm"
+            @click="signUp"
+            :disabled="isLoading || !name.trim() || !email.trim() || !password.trim() || !confirm.trim() || password !== confirm"
             class="mt-6 self-end rounded-[60px] bg-leaf-deep px-8 py-2 text-white text-[15px] font-semibold transition hover:opacity-90"
             style="width: 140px; height: 37px"
           >
