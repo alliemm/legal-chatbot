@@ -40,10 +40,6 @@ const getNotebooks = async () => {
     console.log("Got Notebooks!")
     NOTEBOOKS.value = [
       { id: "new", title: "Add new chat", date: "", sources: "", isNew: true },
-      { id: "2", title: "Lease Agreement", date: "2 April 2026", sources: "3 sources" },
-      { id: "3", title: "School Assignment", date: "2 April 2026", sources: "3 sources" },
-      { id: "4", title: "School Assignment", date: "2 April 2026", sources: "2 sources" },
-      { id: "5", title: "Job offer contract", date: "2 April 2026", sources: "2 sources" },
       ...fetchedNotebooks
     ];
   } catch (err) {
