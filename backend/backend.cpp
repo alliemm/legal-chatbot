@@ -180,6 +180,11 @@ int main()
         {
             return crow::response(400, "Missing login information");
         }
+        crow::response res;
+        res.add_header("Access-Control-Allow-Origin", "http://localhost:5173");
+        res.add_header("Access-Control-Allow-Credentials", "true");
+        res.add_header("Content-Type", "application/json");
+
         std::string email = data["email"].s();
         std::string password = data["password"].s();
         //verify that the user exists and used the correct password
@@ -187,12 +192,15 @@ int main()
         {
             auto& session = app.get_context<Session>(req);
             session.set("user", std::string(email));
-
-            return crow::response(202, "User logged in");
+            res.code = 202;
+            res.body = "User logged in";
+            return res;
         }
         else
         {
-            return crow::response(400, "Incorrect login information");
+            res.code = 400;
+            res.body = "Incorrect login information";
+            return res;
         } });
     // logout
     CROW_ROUTE(app, "/logout")([&app](const crow::request &req)
