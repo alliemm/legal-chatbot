@@ -64,7 +64,7 @@ struct GeminiHttpResponse
 
 std::unique_ptr<pqxx::connection> connectToDatabase();
 bool checkPassword(const std::string &email, const std::string &password);
-pqxx::result getUserPreference(const std::string &email);
+crow::json::wvalue getUserPreference(const std::string &email);
 std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatid);
 bool storeChatMessage(const std::string &email, const std::string& chatid, const std::string& role, const std::string& message, const std::string& title);
 std::string normalizeChatRole(const std::string &role);
@@ -474,7 +474,7 @@ int main()
         //get the chatid
         std::string chatid = req.get_header_value("ChatID");
         std::vector<ChatMessage> history = getChatHistory(email, chatid);
-        //convert to json formate
+        //convert to json format
         std::vector<crow::json::wvalue> chatHistory;
         for (const auto& message : history)
         {
@@ -482,6 +482,21 @@ int main()
             chatHistory.push_back(jsonMessage);
         }
         crow::json::wvalue result = std::move(chatHistory);
+        return crow::response(200, result);
+    });
+
+    //get user preference endpoint history
+    CROW_ROUTE(app, "/userPreferences").methods("GET"_method)([&app](const crow::request& req)
+    {
+        // ensure that user is logged in
+        std::string email = req.get_header_value("Authorization");
+        // if the user isn't logged in then respond with error
+        if (email.empty())
+        {
+            return crow::response(401, "Unauthorized");
+        }
+        //get the user's preferences and return them
+        crow::json::wvalue result = getUserPreference(email);
         return crow::response(200, result);
     });
 
@@ -650,7 +665,7 @@ bool checkPassword(const std::string &email, const std::string &password)
         return false;
     }
 }
-pqxx::result getUserPreference(const std::string &email)
+crow::json::wvalue getUserPreference(const std::string &email)
 {
     try
     {
@@ -658,13 +673,29 @@ pqxx::result getUserPreference(const std::string &email)
         pqxx::nontransaction nonTransaction(*conn);
         // get the user's survey preference answers
         pqxx::result survey = nonTransaction.exec("SELECT * FROM surveys WHERE email = $1", pqxx::params{email});
-        return survey;
+        if (survey.empty())
+        {
+            return crow::json::wvalue::list();
+        }
+        crow::json::wvalue userPreferences;
+        const auto& row = survey[0];
+        for (int i = 0; i < row.size(); i++)
+        {
+            std::string name = row[i].name();
+            if (name == "email")
+            {
+                continue;
+            }
+            userPreferences[name] = row[i].as<std::string>();
+        }
+
+        return userPreferences;
     }
     catch (std::exception &e)
     {
         std::cerr << e.what() << std::endl;
         //if we run into an error return an empty result object
-        return pqxx::result();
+        return crow::json::wvalue::list();
     }
 }
 std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string& chatid)

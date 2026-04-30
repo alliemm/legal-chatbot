@@ -9,10 +9,8 @@ type Source = { name: string; active?: boolean };
 type Message = { from: "user" | "model"; text: string };
 const API_URL = "https://legal-chatbot-4t8e.onrender.com/chat";
 const sources = ref<Source[]>([{ name: "Source 1", active: true }, { name: "Source 2" }]);
-const messages = ref<Message[]>([
-  { from: "user", text: "Rephrase 'This is an ai chatbot generated for better communication and simpler work flows'" },
-  { from: "model", text: "Thank You :)" },
-]);
+const messages = ref<Message[]>([]);
+
 const isThinking = ref(false);
 const input = ref("");
 
@@ -34,13 +32,14 @@ async function send() {
     // 2. GET USER PREFERENCES (The "Secret Sauce")
     // Replace 'fetchPrefsFromDB' with whatever your teammate named their function
     // Or call your C++ endpoint that returns the DB values
-    const prefsResponse = await fetch("http://localhost:18080/api/user-preferences");
+    const prefsResponse = await fetch("https://legal-chatbot-4t8e.onrender.com/userPreferences");
     const userPrefs = await prefsResponse.json();
 
     // 3. SEND TO AI WITH CONTEXT
     const aiResponse = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json",
+                  "ChatID": chatID},
       body: JSON.stringify({
         message: userQuery,
         preferences: userPrefs, // This tells the AI what the user likes!
