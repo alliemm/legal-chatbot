@@ -78,7 +78,8 @@ std::vector<StoredDocument> loadDocuments(
 std::string buildGeminiRequestBody(
     const std::string &message,
     const std::vector<ChatMessage> &history,
-    const std::vector<StoredDocument> &documents);
+    const std::vector<StoredDocument> &documents,
+    const std::vector<std::string>& preferences);
 GeminiHttpResponse sendGeminiRequest(const std::string &requestBody);
 std::string extractGeminiReply(const std::string &responseBody);
 std::string extractGeminiError(const std::string &responseBody);
@@ -534,6 +535,7 @@ int main()
         }
         //get chat history from database
         std::vector<ChatMessage> history = getChatHistory(email, chatid);
+
         //save user's new message to database
         storeChatMessage(email, chatid, "user", message, title);
 
@@ -543,6 +545,17 @@ int main()
             for (size_t i = 0; i < data["documentNames"].size(); ++i)
             {
                 requestedDocuments.push_back(data["documentNames"][i].s());
+            }
+        }
+        std::vector<std::string> preferences;
+
+        if (data.has("preferences"))
+        {
+            auto keys = data["preferences"].keys();
+            for (const std::string& key : keys)
+            {
+                std::string value = data["preferences"][key].s();
+                preferences.push_back(key + ": " + value);
             }
         }
 
@@ -557,7 +570,7 @@ int main()
                 return crow::response(404, "One or more requested documents were not found");
             }
 
-            const std::string geminiRequestBody = buildGeminiRequestBody(message, history, documents);
+            const std::string geminiRequestBody = buildGeminiRequestBody(message, history, documents, preferences);
             const GeminiHttpResponse geminiResponse = sendGeminiRequest(geminiRequestBody);
 
             if (!geminiResponse.error.empty())
@@ -883,10 +896,18 @@ std::vector<StoredDocument> loadDocuments(
 std::string buildGeminiRequestBody(
     const std::string &message,
     const std::vector<ChatMessage> &history,
-    const std::vector<StoredDocument> &documents)
+    const std::vector<StoredDocument> &documents,
+    const std::vector<std::string>& preferences)
 {
     crow::json::wvalue payload;
-    payload["systemInstruction"]["parts"][0]["text"] = GEMINI_SYSTEM_INSTRUCTION;
+    std::string fullSystemInstruction = GEMINI_SYSTEM_INSTRUCTION;
+    if (!preferences.empty()) {
+        fullSystemInstruction += "\n\nUser Preferences:";
+        for (const auto& pref : preferences) {
+            fullSystemInstruction += "\n- " + pref;
+        }
+    }
+    payload["systemInstruction"]["parts"][0]["text"] = fullSystemInstruction;
 
     for (size_t i = 0; i < history.size(); ++i)
     {
