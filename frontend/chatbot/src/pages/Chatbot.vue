@@ -38,7 +38,7 @@ async function send() {
       router.push('/login');
       return
     }
-    const prefsResponse = await axios.get('https://legal-chatbot-4t8e.onrender.com/notebooks', {
+    const prefsResponse = await axios.get('https://legal-chatbot-4t8e.onrender.com/userPreferences', {
       headers: {
         Authorization: token
       }});
