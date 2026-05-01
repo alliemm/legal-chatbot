@@ -142,8 +142,7 @@
 
 <script>
 import axios from 'axios'
-
-const BASE = 'http://localhost:18080'
+import { API_BASE } from '@/api'
 
 export default {
   data() {
@@ -161,7 +160,7 @@ export default {
   },
   async created() {
     try {
-      const res = await axios.get(`${BASE}/profile`, { withCredentials: true })
+      const res = await axios.get(`${API_BASE}/profile`)
       if (res.data?.documents) {
         this.documents = res.data.documents
       }
@@ -182,11 +181,11 @@ export default {
 
       this.loading = true
       try {
-        const res = await axios.post(`${BASE}/chat`, {
+        const res = await axios.post(`${API_BASE}/chat`, {
           message: text,
           history: this.messages.slice(0, -1), // history before this message
           documentNames: this.selectedDocs
-        }, { withCredentials: true })
+        })
 
         this.messages.push({ role: 'model', text: res.data.reply })
       } catch (err) {

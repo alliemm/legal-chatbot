@@ -368,6 +368,7 @@
 
 <script>
 import axios from 'axios'
+import { API_BASE } from '@/api'
 
 export default {
   data() {
@@ -457,7 +458,7 @@ export default {
   },
   async created() {
     try {
-      const res = await axios.get('http://localhost:18080/profile')
+      const res = await axios.get(`${API_BASE}/profile`)
       if (res.data) Object.assign(this.prefs, res.data)
     } catch { /* use defaults */ }
   },
@@ -479,7 +480,7 @@ export default {
       }
       this.pwLoading = true
       try {
-        await axios.post('http://localhost:18080/account/password', {
+        await axios.post(`${API_BASE}/account/password`, {
           currentPassword: this.pw.current,
           newPassword: this.pw.newPwd
         })
@@ -499,7 +500,7 @@ export default {
       this.saved = false
       this.loading = true
       try {
-        await axios.post('http://localhost:18080/profile', this.prefs)
+        await axios.post(`${API_BASE}/profile`, this.prefs)
         this.saved = true
         setTimeout(() => { this.saved = false }, 3000)
       } catch (err) {

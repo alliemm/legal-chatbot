@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
+import axios from "axios";
+import { API_BASE } from "@/api";
 import gavel from "@/assets/gavel.png";
 import surveyBlob from "@/assets/survey-blob.svg";
 
@@ -50,6 +52,8 @@ const QUESTIONS = [
 
 const step = ref(0);
 const answers = ref<(string | string[] | null)[]>(Array(QUESTIONS.length).fill(null));
+const loading = ref(false);
+const error = ref("");
 
 const current = computed(() => QUESTIONS[step.value]);
 
@@ -76,12 +80,29 @@ const canAdvance = computed(() => {
   return ans !== null;
 });
 
-function next() {
+async function next() {
   if (!canAdvance.value) return;
   if (step.value < QUESTIONS.length - 1) {
     step.value++;
   } else {
-    router.push("/dashboard");
+    error.value = "";
+    loading.value = true;
+    try {
+      const ans = answers.value;
+      const payload = {
+        docFrequency: (ans[0] as string) ?? "",
+        docTypes: Array.isArray(ans[1]) ? ans[1].join(", ") : (ans[1] ?? ""),
+        concerns: Array.isArray(ans[2]) ? ans[2].join(", ") : (ans[2] ?? ""),
+        jargonComfort: (ans[3] as string) ?? "",
+        workedWithLawyer: (ans[4] as string) ?? "",
+      };
+      await axios.post(`${API_BASE}/survey`, payload);
+      router.push("/profile");
+    } catch (err: any) {
+      error.value = err.response?.data?.message || err.response?.data || "Could not submit survey. Please try again.";
+    } finally {
+      loading.value = false;
+    }
   }
 }
 </script>
@@ -122,16 +143,36 @@ function next() {
             >{{ opt }}</button>
           </div>
 
+          <p v-if="error" class="mt-4 text-red-400 text-sm">{{ error }}</p>
+
           <button
             @click="next"
-            :disabled="!canAdvance"
+            :disabled="!canAdvance || loading"
             class="mt-8 self-end rounded-[60px] bg-leaf-deep px-8 py-2 text-white text-[15px] font-semibold transition hover:opacity-90 disabled:opacity-40"
             style="width: 121px; height: 37px"
           >
-            Next
+            <span v-if="loading" class="spinner"></span>
+            {{ loading ? 'Submitting…' : step === QUESTIONS.length - 1 ? 'Finish' : 'Next' }}
           </button>
         </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>

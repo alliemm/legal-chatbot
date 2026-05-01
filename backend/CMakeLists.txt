@@ -15,7 +15,13 @@ find_package(libpqxx CONFIG REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SODIUM REQUIRED libsodium)
 
-add_executable(legal_chatbot backend.cpp)
+add_executable(legal_chatbot
+    config.cpp
+    db.cpp
+    gemini.cpp
+    routes.cpp
+    main.cpp
+)
 
 target_include_directories(legal_chatbot PRIVATE ${SODIUM_INCLUDE_DIRS})
 

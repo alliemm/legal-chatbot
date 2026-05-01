@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import {onMounted, ref} from "vue";
+import { onMounted, ref } from "vue";
 import Logo from "@/components/Logo.vue";
 import { Plus, Settings, Search, Send, Smile, MessageSquare, ChevronDown, FileText } from "lucide-vue-next";
 import axios from "axios";
-import {useRouter, useRoute} from "vue-router";
+import { useRouter, useRoute } from "vue-router";
+import { API_BASE } from "@/api";
 
 type Source = { name: string; active?: boolean };
 type Message = { from: "user" | "model"; text: string };
-const API_URL = "https://legal-chatbot-4t8e.onrender.com/chat";
+
 const sources = ref<Source[]>([{ name: "Source 1", active: true }, { name: "Source 2" }]);
 const messages = ref<Message[]>([]);
 
@@ -15,87 +16,78 @@ const isThinking = ref(false);
 const input = ref("");
 
 const router = useRouter();
-const route = useRoute()
+const route = useRoute();
 
-const chatID = route.params.id as string
+const chatID = route.params.id as string;
 
 const error = ref("");
 
 async function send() {
   const v = input.value.trim();
   if (!v || isThinking.value) return;
-  messages.value.push({ from: "user", text: v })
+  messages.value.push({ from: "user", text: v });
   isThinking.value = true;
   const userQuery = v;
   input.value = "";
   try {
-    // 2. GET USER PREFERENCES (The "Secret Sauce")
-    // Replace 'fetchPrefsFromDB' with whatever your teammate named their function
-    // Or call your C++ endpoint that returns the DB values
-    const token = localStorage.getItem('user_token');
-    if(!token){
-      error.value = "Please login to view this page"
-      router.push('/login');
-      return
+    const token = localStorage.getItem("user_token");
+    if (!token) {
+      error.value = "Please login to view this page";
+      router.push("/login");
+      return;
     }
-    const prefsResponse = await axios.get('https://legal-chatbot-4t8e.onrender.com/userPreferences', {
-      headers: {
-        Authorization: token
-      }});
-    const userPrefs = await prefsResponse.data;
-
-    // 3. SEND TO AI WITH CONTEXT
-    const aiResponse = await axios.post(API_URL, {
-      message: userQuery,
-      preferences: userPrefs,
-      context: "The user is currently looking at a Job Offer Agreement."},
-        {headers: {
-        Authorization: token,
-        ChatID: chatID
-      }
-    });
+    const aiResponse = await axios.post(
+      `${API_BASE}/chat`,
+      {
+        message: userQuery,
+      },
+      {
+        headers: {
+          Authorization: token,
+          ChatID: chatID,
+        },
+      },
+    );
 
     const data = aiResponse.data;
-
-    // Push the actual AI response to the chat
     messages.value.push({ from: "model", text: data.reply });
-
-  } catch (error) {
-    console.error("Failed to connect to backend:", error);
+  } catch (err) {
+    console.error("Failed to connect to backend:", err);
     messages.value.push({
       from: "model",
-      text: "Sorry, I'm having trouble connecting to the Legaleye server."
+      text: "Sorry, I'm having trouble connecting to the Legaleye server.",
     });
   } finally {
-    isThinking.value = false; //stops loading
+    isThinking.value = false;
   }
 }
+
 const getMessages = async () => {
   try {
-    const token = localStorage.getItem('user_token');
-    if(!token){
-      error.value = "Please login to view this page"
-      router.push('/login');
-      return
+    const token = localStorage.getItem("user_token");
+    if (!token) {
+      error.value = "Please login to view this page";
+      router.push("/login");
+      return;
     }
-    const response = await axios.get('https://legal-chatbot-4t8e.onrender.com/chatHistory', {
+    const response = await axios.get(`${API_BASE}/chatHistory`, {
       headers: {
         Authorization: token,
-        ChatID : chatID
-      }
+        ChatID: chatID,
+      },
     });
     const data = response.data;
-    const chatHistory = data.map((message: any) =>({
-      from: message[0] === 'user' ? 'user' : 'model',
-      text: message[1]
-    }))
+    const chatHistory = data.map((message: any) => ({
+      from: message[0] === "user" ? "user" : "model",
+      text: message[1],
+    }));
     messages.value.push(...chatHistory);
-
   } catch (err) {
     console.error(err);
     error.value = "Failed to load chat history.";
   }
 };
+
 onMounted(() => {
   getMessages();
 });
