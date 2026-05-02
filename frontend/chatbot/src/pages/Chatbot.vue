@@ -21,6 +21,53 @@ const route = useRoute();
 const chatID = route.params.id as string;
 const title = ref('New Notebook');
 const error = ref("");
+const showFileUpload = ref(false);
+const selectedFile = ref<File | null>(null);
+const isUploading = ref(false);
+const uploadStatus = ref('');
+
+const handleFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    selectedFile.value = target.files[0];
+  }
+};
+
+const uploadFile = async () => {
+  if (!selectedFile.value) return;
+
+  const formData = new FormData();
+  formData.append('chatid', chatID);
+  formData.append('InputFile', selectedFile.value);
+
+  try {
+    isUploading.value = true;
+    uploadStatus.value = '';
+    const token = localStorage.getItem("user_token");
+
+    await axios.post(`${API_BASE}/upload`, formData, {
+      headers: {
+        'Authorization': token,
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+
+    uploadStatus.value = 'Successfully uploaded file';
+    sources.value.push({ name: selectedFile.value.name });
+
+    setTimeout(() => {
+      showFileUpload.value = false;
+      uploadStatus.value = '';
+      selectedFile.value = null;
+    }, 1500);
+
+  } catch (err) {
+    uploadStatus.value = 'Upload failed';
+    console.error(err);
+  } finally {
+    isUploading.value = false;
+  }
+};
 
 async function send() {
   const v = input.value.trim();
@@ -105,14 +152,30 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen w-full bg-cream flex" style="font-family: Montserrat, Inter, sans-serif">
+    <div v-if="showFileUpload" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border-4 border-leaf-deep relative">
+        <button @click="showFileUpload = false" class="absolute top-4 right-4 text-gray-500 hover:text-black text-xl">✕</button>
+        <h3 class="text-2xl font-bold mb-4 text-leaf-deep">Upload Document</h3>
+        <div class="flex flex-col gap-4">
+          <input type="file" @change="handleFileChange" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-mint-soft file:text-leaf-deep hover:file:bg-mint-soft/60" />
+          <button @click="uploadFile" :disabled="!selectedFile || isUploading" class="bg-leaf-deep text-white py-3 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-opacity-90 transition-all">
+            {{ isUploading ? 'Uploading...' : 'Confirm Upload' }}
+          </button>
+          <p v-if="uploadStatus" class="text-center text-sm font-medium mt-2" :class="uploadStatus.includes('Successfully') ? 'text-green-600' : 'text-red-600'">
+            {{ uploadStatus }}
+          </p>
+        </div>
+      </div>
+    </div>
     <!-- SIDEBAR -->
     <aside class="hidden md:flex flex-col w-[360px] m-6 rounded-2xl text-white/80 relative overflow-hidden" style="background-color: #0b4538; border: 3px solid #f8f8ff; box-shadow: 0 4px 6px rgba(15,11,11,0.1); min-height: calc(100vh - 48px)">
       <div class="absolute inset-1 rounded-2xl pointer-events-none" style="border: 3px solid #f5f5f5" />
       <div class="relative p-6 flex flex-col gap-3 flex-1">
-        <RouterLink to="/dashboard" class="flex items-center gap-3 px-4 h-[44px] rounded-md text-white text-[15px] font-medium" style="background-color: #1e6d55; border: 2px solid #282934">
+        <button @click="showFileUpload = true" class="flex items-center gap-3 px-4 h-[44px] rounded-md text-white text-[15px] font-medium" style="background-color: #1e6d55; border: 2px solid #282934">
           <Plus class="h-5 w-5" />
           <span>Add new source</span>
-        </RouterLink>
+        </button>
+
         <button
           v-for="(s, i) in sources"
           :key="i"
@@ -181,3 +244,4 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
