@@ -6,7 +6,8 @@ import Survey from "./pages/Survey.vue";
 import Dashboard from "./pages/Dashboard.vue";
 import Chatbot from "./pages/Chatbot.vue";
 import NotFound from "./pages/NotFound.vue";
-import Profile from "./pages/Profile.vue";          
+import Profile from "./pages/Profile.vue";   
+import DownloadExtension from "./pages/DownloadExtension.vue";       
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -19,5 +20,6 @@ export const router = createRouter({
     { path: "/chatbot/:id", component: Chatbot },
     { path: "/profile", component: Profile },       
     { path: "/:pathMatch(.*)*", component: NotFound },
+    { path: "/download-extension", component: DownloadExtension },
   ],
 });

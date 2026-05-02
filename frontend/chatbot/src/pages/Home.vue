@@ -45,6 +45,9 @@ import divider from "@/assets/icons/divider.svg";
         <RouterLink to="/signup" class="relative mt-10 rounded-full bg-leaf-deep px-14 py-4 font-semibold text-white transition hover:scale-[1.02]" style="font-family: Inter, sans-serif; font-size: 24px; box-shadow: -20px -20px 50px rgba(64,241,123,0.25), 20px 20px 50px rgba(19,235,76,0.25)">
           Get Started
         </RouterLink>
+         <RouterLink to="/download-extension" class="rounded-full border-2 border-leaf-deep px-14 py-4 font-semibold text-leaf-deep transition hover:scale-[1.02] hover:bg-leaf-deep/10" style="font-family: Inter, sans-serif; font-size: 24px;">
+          Download Extension
+        </RouterLink>
       </div>
     </section>
 
