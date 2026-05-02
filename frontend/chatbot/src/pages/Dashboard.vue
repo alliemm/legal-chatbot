@@ -1,20 +1,19 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { useRouter } from "vue-router";
 import Logo from "@/components/Logo.vue";
 import { Plus, Search, Settings, MoreVertical, X } from "lucide-vue-next";
-
-type Notebook = { title: string; date: string; sources: string; isNew?: boolean };
-
-const NOTEBOOKS: Notebook[] = [
-  { title: "Add new chat", date: "", sources: "", isNew: true },
-  { title: "Lease Agreement", date: "2 April 2026", sources: "3 sources" },
-  { title: "School Assignment", date: "2 April 2026", sources: "3 sources" },
-  { title: "School Assignment", date: "2 April 2026", sources: "2 sources" },
-  { title: "Job offer contract", date: "2 April 2026", sources: "2 sources" },
-];
+import axios from "axios";
+import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
+import { nanoid } from "nanoid";
+import { API_BASE } from "@/api";
 
 const router = useRouter();
+
+type Notebook = { id: string; title: string; date: string; sources: string; isNew?: boolean };
+
+const NOTEBOOKS = ref<Notebook[]>([]);
+
+const error = ref("");
 const showNamePopup = ref(false);
 const notebookName = ref("");
 
@@ -26,8 +25,45 @@ function openPopup() {
 function handleCreate() {
   if (!notebookName.value.trim()) return;
   showNamePopup.value = false;
-  router.push("/chatbot");
+  const newId = nanoid(25);
+  router.push(`/chatbot/${newId}`);
 }
+
+const getNotebooks = async () => {
+  try {
+    const token = localStorage.getItem("user_token");
+    if (!token) {
+      error.value = "Please login to view this page";
+      router.push("/login");
+      return;
+    }
+    const response = await axios.get(`${API_BASE}/notebooks`, {
+      headers: {
+        Authorization: token,
+      },
+    });
+
+    const data = response.data;
+    const fetchedNotebooks = Object.entries(data).map(([id, info]: any) => ({
+      id: id,
+      title: info[0],
+      date: info[1],
+      sources: info[2] + " sources",
+      isNew: false,
+    }));
+    NOTEBOOKS.value = [
+      { id: "new", title: "Add new chat", date: "", sources: "", isNew: true },
+      ...fetchedNotebooks,
+    ];
+  } catch (err) {
+    console.error(err);
+    error.value = "Failed to load notebooks.";
+  }
+};
+
+onMounted(() => {
+  getNotebooks();
+});
 </script>
 
 <template>
@@ -46,7 +82,7 @@ function handleCreate() {
             <span>Add new chat</span>
             <Plus class="h-5 w-5" />
           </button>
-          <button class="hidden md:flex items-center gap-2 h-[55px] rounded-full px-6 text-[18px]" style="background-color: rgba(184,224,212,0.8); color: #0e5c4a; box-shadow: 4px 4px 15px rgba(0,0,0,0.25); font-family: Inter, sans-serif">
+          <RouterLink to="/profile" class="hidden md:flex items-center gap-2 h-[55px] rounded-full px-6 text-[18px]" style="background-color: rgba(184,224,212,0.8); color: #0e5c4a; box-shadow: 4px 4px 15px rgba(0,0,0,0.25); font-family: Inter, sans-serif">
             <Settings class="h-5 w-5" />
             <span>Settings</span>
           </RouterLink>
@@ -57,17 +93,16 @@ function handleCreate() {
     <main class="mx-auto max-w-[1440px] px-8 py-12">
       <h1 class="text-[40px] font-extrabold" style="color: #154939">Recent notebooks</h1>
       <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-        <template v-for="(notebook, i) in NOTEBOOKS" :key="i">
-          <button
+        <template v-for="(notebook, i) in NOTEBOOKS" :key="notebook.id">
+          <div
             v-if="notebook.isNew"
-            type="button"
             @click="openPopup"
-            class="group relative flex flex-col items-center justify-center rounded-[50px] aspect-[368/348] transition hover:scale-[1.02] w-full"
+            class="group relative flex flex-col items-center justify-center rounded-[50px] aspect-[368/348] transition hover:scale-[1.02] cursor-pointer"
             style="background-color: rgba(120,213,185,0.7)"
           >
             <Plus class="h-24 w-24" style="color: #154939" :stroke-width="2.5" />
             <span class="mt-4 text-[32px] font-extrabold text-center px-6" style="color: #154939">Add new chat</span>
-          </button>
+          </div>
           <RouterLink
             v-else
             :to="`/chatbot/${notebook.id}`"
