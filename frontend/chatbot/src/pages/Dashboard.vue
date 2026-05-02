@@ -49,7 +49,7 @@ function handleCreate() {
           <button class="hidden md:flex items-center gap-2 h-[55px] rounded-full px-6 text-[18px]" style="background-color: rgba(184,224,212,0.8); color: #0e5c4a; box-shadow: 4px 4px 15px rgba(0,0,0,0.25); font-family: Inter, sans-serif">
             <Settings class="h-5 w-5" />
             <span>Settings</span>
-          </button>
+          </RouterLink>
         </div>
       </div>
     </header>
@@ -70,7 +70,7 @@ function handleCreate() {
           </button>
           <RouterLink
             v-else
-            to="/chatbot"
+            :to="`/chatbot/${notebook.id}`"
             class="group relative flex flex-col rounded-[50px] aspect-[368/348] p-8 transition hover:scale-[1.02]"
             style="background-color: rgba(120,213,185,0.7)"
           >

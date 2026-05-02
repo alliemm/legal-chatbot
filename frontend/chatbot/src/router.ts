@@ -16,7 +16,7 @@ export const router = createRouter({
     { path: "/signup", component: Signup },
     { path: "/survey", component: Survey },
     { path: "/dashboard", component: Dashboard },
-    { path: "/chatbot", component: Chatbot },
+    { path: "/chatbot/:id", component: Chatbot },
     { path: "/profile", component: Profile },       
     { path: "/:pathMatch(.*)*", component: NotFound },
   ],
