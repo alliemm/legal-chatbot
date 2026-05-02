@@ -19,7 +19,7 @@ const router = useRouter();
 const route = useRoute();
 
 const chatID = route.params.id as string;
-const title = ref('New Notebook');;
+const title = ref('New Notebook');
 const error = ref("");
 
 async function send() {
@@ -36,17 +36,12 @@ async function send() {
       router.push("/login");
       return;
     }
-    const navigationState = window.history.state;
-
-    if (navigationState && navigationState.notebookTitle) {
-      title.value = navigationState.notebookTitle;
-    }
 
     const aiResponse = await axios.post(
       `${API_BASE}/chat`,
       {
         message: userQuery,
-        title : title
+        title : title.value
       },
       {
         headers: {
@@ -94,9 +89,17 @@ const getMessages = async () => {
     error.value = "Failed to load chat history.";
   }
 };
+const saveTitle = async () => {
+  const navigationState = window.history.state;
 
+  if (navigationState && navigationState.notebookTitle) {
+    title.value = navigationState.notebookTitle;
+  }
+  console.log("Title", title.value);
+}
 onMounted(() => {
   getMessages();
+  saveTitle();
 });
 </script>
 
@@ -148,7 +151,7 @@ onMounted(() => {
       </header>
 
       <div class="px-6 md:px-10 pt-6">
-        <h1 class="text-[32px] md:text-[40px] font-extrabold" style="font-family: Poppins, sans-serif; color: #154939">Job offer Agreement</h1>
+        <h1 class="text-[32px] md:text-[40px] font-extrabold" style="font-family: Poppins, sans-serif; color: #154939">{{title}}</h1>
       </div>
 
       <div class="flex-1 px-6 md:px-10 py-8 overflow-y-auto">

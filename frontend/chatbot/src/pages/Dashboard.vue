@@ -28,10 +28,15 @@ function handleCreate() {
   const newId = nanoid(25);
   router.push({
     path: `/chatbot/${newId}`,
-    state: { notebookTitle: notebookName.value }
+    state: { notebookTitle: notebookName.value.trim() }
   });
 }
-
+function openOld(cur:Notebook){
+  router.push({
+    path: `/chatbot/${cur.id}`,
+    state: { notebookTitle: cur.title }
+  });
+}
 const getNotebooks = async () => {
   try {
     const token = localStorage.getItem("user_token");
@@ -96,33 +101,46 @@ onMounted(() => {
     <main class="mx-auto max-w-[1440px] px-8 py-12">
       <h1 class="text-[40px] font-extrabold" style="color: #154939">Recent notebooks</h1>
       <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-        <template v-for="(notebook, i) in NOTEBOOKS" :key="notebook.id">
+        <template v-for="notebook in NOTEBOOKS" :key="notebook.id">
+
           <div
-            v-if="notebook.isNew"
-            @click="openPopup"
-            class="group relative flex flex-col items-center justify-center rounded-[50px] aspect-[368/348] transition hover:scale-[1.02] cursor-pointer"
-            style="background-color: rgba(120,213,185,0.7)"
+              v-if="notebook.isNew"
+              @click="openPopup"
+              class="group relative flex flex-col items-center justify-center rounded-[50px] aspect-[368/348] transition hover:scale-[1.02] cursor-pointer"
+              style="background-color: rgba(120,213,185,0.7)"
           >
             <Plus class="h-24 w-24" style="color: #154939" :stroke-width="2.5" />
-            <span class="mt-4 text-[32px] font-extrabold text-center px-6" style="color: #154939">Add new chat</span>
+            <span class="mt-4 text-[32px] font-extrabold text-center px-6" style="color: #154939">
+          Add new chat
+        </span>
           </div>
-          <RouterLink
-            v-else
-            :to="`/chatbot/${notebook.id}`"
-            class="group relative flex flex-col rounded-[50px] aspect-[368/348] p-8 transition hover:scale-[1.02]"
-            style="background-color: rgba(120,213,185,0.7)"
+
+          <div
+              v-else
+              @click="openOld(notebook)"
+              class="group relative flex flex-col rounded-[50px] aspect-[368/348] p-8 transition hover:scale-[1.02] cursor-pointer"
+              style="background-color: rgba(120,213,185,0.7)"
           >
-            <button class="absolute top-5 right-5 text-leaf-deep/70 hover:text-leaf-deep" @click.prevent aria-label="More options">
+            <button
+                class="absolute top-5 right-5 text-leaf-deep/70 hover:text-leaf-deep z-10"
+                @click.stop
+                aria-label="More options"
+            >
               <MoreVertical class="h-6 w-6" />
             </button>
+
             <div class="flex-1 flex items-center">
-              <h3 class="text-[36px] font-extrabold leading-tight" style="color: #154939">{{ notebook.title }}</h3>
+              <h3 class="text-[36px] font-extrabold leading-tight" style="color: #154939">
+                {{ notebook.title }}
+              </h3>
             </div>
+
             <div class="mt-auto" style="color: rgba(118,122,121,0.85)">
               <div class="text-[18px] font-extrabold">{{ notebook.date }}</div>
               <div class="text-[18px] font-extrabold mt-1">{{ notebook.sources }}</div>
             </div>
-          </RouterLink>
+          </div>
+
         </template>
       </div>
     </main>
