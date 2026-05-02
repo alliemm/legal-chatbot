@@ -26,7 +26,10 @@ function handleCreate() {
   if (!notebookName.value.trim()) return;
   showNamePopup.value = false;
   const newId = nanoid(25);
-  router.push(`/chatbot/${newId}`);
+  router.push({
+    path: `/chatbot/${newId}`,
+    state: { notebookTitle: notebookName.value }
+  });
 }
 
 const getNotebooks = async () => {

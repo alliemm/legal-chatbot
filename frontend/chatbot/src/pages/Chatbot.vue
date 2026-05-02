@@ -19,7 +19,7 @@ const router = useRouter();
 const route = useRoute();
 
 const chatID = route.params.id as string;
-
+const title = ref('New Notebook');;
 const error = ref("");
 
 async function send() {
@@ -36,10 +36,17 @@ async function send() {
       router.push("/login");
       return;
     }
+    const navigationState = window.history.state;
+
+    if (navigationState && navigationState.notebookTitle) {
+      title.value = navigationState.notebookTitle;
+    }
+
     const aiResponse = await axios.post(
       `${API_BASE}/chat`,
       {
         message: userQuery,
+        title : title
       },
       {
         headers: {

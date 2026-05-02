@@ -374,7 +374,7 @@ void setupRoutes(crow::App<crow::CORSHandler, crow::CookieParser, Session> &app)
         {
             return crow::response(400, "Missing chat id");
         }
-        const std::string title = getChatTitle(email, chatid);
+        const std::string title = data["title"].s();
         const std::string message = data["message"].s();
         if (message.empty())
         {
