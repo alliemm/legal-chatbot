@@ -5,7 +5,7 @@ import { Plus, Settings, Search, Send, Smile, MessageSquare, ChevronDown, FileTe
 import axios from "axios";
 import { useRouter, useRoute } from "vue-router";
 import { API_BASE } from "@/api";
-import MarkdownIt from "markdown-it";
+import * as MarkdownIt from "markdown-it";
 
 type Source = { name: string; active?: boolean };
 type Message = { from: "user" | "model"; text: string };
@@ -13,7 +13,7 @@ type Message = { from: "user" | "model"; text: string };
 const sources = ref<Source[]>([]);
 const messages = ref<Message[]>([]);
 
-const md = new MarkdownIt();
+const md = new (MarkdownIt as any)();
 const renderMarkdown = (text: string) => md.render(text);
 
 const isThinking = ref(false);
