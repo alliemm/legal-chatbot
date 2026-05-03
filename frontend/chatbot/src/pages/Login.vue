@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import {onMounted, ref} from "vue";
 import { useRouter } from "vue-router";
 import lawBooks from "@/assets/law-books.png";
 import surveyBlob from "@/assets/survey-blob.svg";
 import axios from "axios";
+import {API_BASE} from "@/api.ts";
 
 const router = useRouter();
 const email = ref("");
@@ -14,7 +15,6 @@ const error = ref("");
 const login = async() =>{
   isLoading.value = true;
   error.value = "";
-  console.log("IN HERE")
   try{
     const response = await axios.post('https://legal-chatbot-4t8e.onrender.com/login', {
       "email": email.value,
@@ -32,8 +32,17 @@ const login = async() =>{
   }finally{
     isLoading.value = false;
   }
-
 }
+const alreadyLoggedIn = async () => {
+  const token = localStorage.getItem("user_token");
+  if (token) {
+    router.push("/dashboard");
+    return;
+  }
+};
+onMounted(() => {
+  alreadyLoggedIn();
+});
 </script>
 
 <template>

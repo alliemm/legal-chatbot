@@ -10,7 +10,7 @@ import MarkdownIt from "markdown-it";
 type Source = { name: string; active?: boolean };
 type Message = { from: "user" | "model"; text: string };
 
-const sources = ref<Source[]>([{ name: "Source 1", active: true }, { name: "Source 2" }]);
+const sources = ref<Source[]>([]);
 const messages = ref<Message[]>([]);
 
 const md = new MarkdownIt();
