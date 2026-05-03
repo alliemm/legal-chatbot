@@ -185,7 +185,7 @@ void setupRoutes(crow::App<crow::CORSHandler, crow::CookieParser, Session> &app)
                 reinterpret_cast<const std::byte *>(fileBody.data()),
                 fileBody.size()
             };
-            transaction.exec("INSERT INTO documents (email, filename, data, chatid) VALUES ($1, $2, $3, $4)", pqxx::params{email, fileName, fileData, chatid});
+            transaction.exec("INSERT INTO documents (email, name, contents, chatid) VALUES ($1, $2, $3, $4)", pqxx::params{email, fileName, fileData, chatid});
 
             transaction.commit();
             return crow::response(200, "Upload Successful");
