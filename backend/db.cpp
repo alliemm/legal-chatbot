@@ -172,26 +172,7 @@ std::vector<ChatMessage> getChatHistory(const std::string &email, const std::str
         return std::vector<ChatMessage>();
     }
 }
-std::vector<std::string> getSourceHistory(const std::string &email, const std::string &chatid)
-{
-    try
-    {
-        auto conn = connectToDatabase();
-        pqxx::nontransaction nonTransaction(*conn);
-        pqxx::result sources = nonTransaction.exec("SELECT * FROM documents WHERE email = $1 AND chatid = $2", pqxx::params{email, chatid});
-        std::vector<std::string> sourceHistory;
-        for (const auto &source : sources)
-        {
-            sourceHistory.push_back(source["name"].as<std::string>());
-        }
-        return sourceHistory;
-    }
-    catch (std::exception &e)
-    {
-        std::cerr << e.what() << std::endl;
-        return std::vector<std::string>();
-    }
-}
+
 bool storeChatMessage(const std::string &email, const std::string &chatid, const std::string &role, const std::string &message, const std::string &title)
 {
     try
@@ -278,12 +259,14 @@ void initDatabase()
             ")");
         transaction.exec(
             "CREATE TABLE IF NOT EXISTS surveys ("
-            "email TEXT,"
-            "doc_frequency TEXT,"
-            "doc_types TEXT,"
-            "concerns TEXT,"
-            "jargon_comfort TEXT,"
-            "worked_with_lawyer TEXT"
+            "email VARCHAR(300) PRIMARY KEY,"
+            "usertype VARCHAR(500),"
+            "workedwithlawyer VARCHAR(500),"
+            "howoften VARCHAR(500),"
+            "typesofdocuments VARCHAR(500),"
+            "biggestconcerns VARCHAR(500),"
+            "jargonunderstanding VARCHAR(500),"
+            "outcome VARCHAR(500)"
             ")");
         transaction.commit();
         std::cout << "Database tables initialized" << std::endl;
@@ -392,7 +375,8 @@ bool saveSurvey(
         }
         pqxx::work transaction(*conn);
         transaction.exec(
-            "INSERT INTO surveys VALUES ($1, $2, $3, $4, $5, $6)",
+            "INSERT INTO surveys (email, howoften, typesofdocuments, biggestconcerns, jargonunderstanding, workedwithlawyer, usertype, outcome)"
+            " VALUES ($1, $2, $3, $4, $5, $6, '', '')",
             pqxx::params{email, docFrequency, docTypes, concerns, jargonComfort, workedWithLawyer});
         transaction.commit();
         return true;
@@ -538,23 +522,23 @@ std::string gatherUserContext(const std::string &email)
             {
                 context += "\nUSER SURVEY:\n";
 
-                std::string docFreq = survey[0]["doc_frequency"].c_str();
+                std::string docFreq = survey[0]["howoften"].c_str();
                 if (!docFreq.empty())
                     context += "- Document frequency: " + docFreq + "\n";
 
-                std::string docTypes = survey[0]["doc_types"].c_str();
+                std::string docTypes = survey[0]["typesofdocuments"].c_str();
                 if (!docTypes.empty())
                     context += "- Documents: " + docTypes + "\n";
 
-                std::string concerns = survey[0]["concerns"].c_str();
+                std::string concerns = survey[0]["biggestconcerns"].c_str();
                 if (!concerns.empty())
                     context += "- Concerns: " + concerns + "\n";
 
-                std::string jargon = survey[0]["jargon_comfort"].c_str();
+                std::string jargon = survey[0]["jargonunderstanding"].c_str();
                 if (!jargon.empty())
                     context += "- Jargon comfort: " + jargon + "\n";
 
-                std::string lawyer = survey[0]["worked_with_lawyer"].c_str();
+                std::string lawyer = survey[0]["workedwithlawyer"].c_str();
                 if (!lawyer.empty())
                     context += "- Worked with lawyer: " + lawyer + "\n";
             }
