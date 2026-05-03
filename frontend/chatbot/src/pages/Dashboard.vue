@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import Logo from "@/components/Logo.vue";
-import { Plus, Search, Settings, MoreVertical, X } from "lucide-vue-next";
+import { Plus, Search, Settings, MoreVertical, X, LogOut } from "lucide-vue-next";
 import axios from "axios";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -37,6 +37,12 @@ function openOld(cur:Notebook){
     state: { notebookTitle: cur.title }
   });
 }
+
+function logout() {
+  localStorage.removeItem("user_token");
+  router.push("/login");
+}
+
 const getNotebooks = async () => {
   try {
     const token = localStorage.getItem("user_token");
@@ -91,9 +97,13 @@ onMounted(() => {
             <Plus class="h-5 w-5" />
           </button>
           <RouterLink to="/profile" class="hidden md:flex items-center gap-2 h-[55px] rounded-full px-6 text-[18px]" style="background-color: rgba(184,224,212,0.8); color: #0e5c4a; box-shadow: 4px 4px 15px rgba(0,0,0,0.25); font-family: Inter, sans-serif">
-            <Settings class="h-5 w-5" />
-            <span>Settings</span>
-          </RouterLink>
+          <Settings class="h-5 w-5" />
+          <span>Settings</span>
+        </RouterLink>
+        <button @click="logout" class="hidden md:flex items-center gap-2 h-[55px] rounded-full px-6 text-[18px]" style="background-color: #0e5c4a; color: #86e3ce; box-shadow: 4px 4px 15px rgba(0,0,0,0.25); font-family: Inter, sans-serif">
+          <LogOut class="h-5 w-5" />
+          <span>Logout</span>
+        </button>
         </div>
       </div>
     </header>
