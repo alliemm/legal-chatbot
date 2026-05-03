@@ -165,8 +165,29 @@ const observer = new MutationObserver(() => {
 const initialResult = detectTermsAndConditions();
 sendResult(initialResult);
 
+if (initialResult.detected) {
+  chrome.runtime.sendMessage({
+    type: "TC_PAGE_DETECTED",
+    text: document.body.innerText,
+    url: location.href
+  });
+}
+
 // Only set up the observer if the page wasn't already detected as T&C,
 // and if document.body is available (it always should be in a content script).
 if (!initialResult.detected && document.body) {
   observer.observe(document.body, { childList: true, subtree: true });
 }
+
+// Highlight risky clauses sent back from the background script
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "HIGHLIGHT_CLAUSES") {
+    for (const clause of message.clauses) {
+      document.body.innerHTML = document.body.innerHTML.replace(
+        clause.text,
+        `<mark style="background: rgba(255,0,0,0.3); border-radius: 3px;">${clause.text}</mark>`
+      );
+    }
+  }
+});

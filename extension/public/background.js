@@ -25,6 +25,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
 
+  // Content script sends extracted T&C text for analysis
+  if (message.type === "TC_TEXT_EXTRACTED") {
+    const tabId = sender.tab?.id;
+    fetch("https://legal-chatbot-4t8e.onrender.com/analyze-tc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: message.text.slice(0, 8000) })
+    })
+    .then(res => res.json())
+    .then(data => {
+      try {
+        const clauses = JSON.parse(data.reply);
+        chrome.tabs.sendMessage(tabId, { type: "HIGHLIGHT_CLAUSES", clauses });
+      } catch (e) {
+        console.error("Failed to parse clauses:", e);
+      }
+    });
+    return;
+  }
+
+
   // --- Popup requests the current status for a tab ---
   if (message.type === "GET_STATUS") {
     const state = tabStates.get(message.tabId) ?? { detected: false };
