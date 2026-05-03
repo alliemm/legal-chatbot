@@ -12,6 +12,7 @@ void initDatabase();
 bool checkPassword(const std::string &email, const std::string &password);
 pqxx::result getUserPreference(const std::string &email);
 std::vector<ChatMessage> getChatHistory(const std::string &email, const std::string &chatid);
+std::vector<std::string> getSourceHistory(const std::string &email, const std::string &chatid);
 bool storeChatMessage(const std::string &email, const std::string &chatid, const std::string &role, const std::string &message, const std::string &title = "");
 std::string getChatTitle(const std::string &email, const std::string &chatid);
 crow::json::wvalue getNotebooks(const std::string &email);

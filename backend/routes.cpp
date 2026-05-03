@@ -331,6 +331,20 @@ void setupRoutes(crow::App<crow::CORSHandler, crow::CookieParser, Session> &app)
         return crow::response(200, result);
     });
 
+    CROW_ROUTE(app, "/sourcesHistory").methods("GET"_method)([&app](const crow::request &req)
+    {
+        std::string email = req.get_header_value("Authorization");
+        if (email.empty())
+        {
+            return crow::response(401, "Unauthorized");
+        }
+        std::string chatid = req.get_header_value("ChatID");
+        std::vector<std::string> history = getSourceHistory(email, chatid);
+        crow::json::wvalue sourceHistory;
+        sourceHistory = history;
+        return crow::response(200, sourceHistory);
+    });
+
     CROW_ROUTE(app, "/userPreferences").methods("GET"_method)([&app](const crow::request &req)
     {
         std::string email = req.get_header_value("Authorization");

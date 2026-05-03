@@ -140,6 +140,27 @@ const getMessages = async () => {
     error.value = "Failed to load chat history.";
   }
 };
+const getSources = async () => {
+  try {
+    const token = localStorage.getItem("user_token");
+    if (!token) {
+      error.value = "Please login to view this page";
+      router.push("/login");
+      return;
+    }
+    const response = await axios.get(`${API_BASE}/sourcesHistory`, {
+      headers: {
+        Authorization: token,
+        ChatID: chatID,
+      },
+    });
+    const data = response.data;
+    sources.value = data.map((name: string) => ({ name, active: false }));
+  } catch (err) {
+    console.error(err);
+    error.value = "Failed to load chat history.";
+  }
+};
 const saveTitle = async () => {
   const navigationState = window.history.state;
 
@@ -151,6 +172,7 @@ const saveTitle = async () => {
 onMounted(() => {
   getMessages();
   saveTitle();
+  getSources();
 });
 </script>
 

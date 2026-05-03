@@ -172,7 +172,26 @@ std::vector<ChatMessage> getChatHistory(const std::string &email, const std::str
         return std::vector<ChatMessage>();
     }
 }
-
+std::vector<std::string> getSourceHistory(const std::string &email, const std::string &chatid)
+{
+    try
+    {
+        auto conn = connectToDatabase();
+        pqxx::nontransaction nonTransaction(*conn);
+        pqxx::result sources = nonTransaction.exec("SELECT * FROM documents WHERE email = $1 AND chatid = $2", pqxx::params{email, chatid});
+        std::vector<std::string> sourceHistory;
+        for (const auto &source : sources)
+        {
+            sourceHistory.push_back(source["name"].as<std::string>());
+        }
+        return sourceHistory;
+    }
+    catch (std::exception &e)
+    {
+        std::cerr << e.what() << std::endl;
+        return std::vector<std::string>();
+    }
+}
 bool storeChatMessage(const std::string &email, const std::string &chatid, const std::string &role, const std::string &message, const std::string &title)
 {
     try
