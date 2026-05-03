@@ -145,58 +145,54 @@ void setupRoutes(crow::App<crow::CORSHandler, crow::CookieParser, Session> &app)
         return crow::response(500, "Failed to save survey results");
     });
 
-    CROW_ROUTE(app, "/upload").methods("POST"_method)([&app](const crow::request &req)
-    {
+    CROW_ROUTE(app, "/upload").methods("POST"_method)([&app](const crow::request &req) {
         std::string email = req.get_header_value("Authorization");
         if (email.empty())
         {
             return crow::response(401, "Unauthorized");
         }
         std::string chatid;
+        std::string fileName;
+        std::string fileBody;
+
         crow::multipart::message_view fileMessage(req);
-        for (const auto &part : fileMessage.part_map)
-        {
-            const auto &partName = part.first;
-            const auto &partValue = part.second;
-            if ("chatid" == partName)
-            {
-                chatid = partValue.body;
+
+        for (const auto &part : fileMessage.part_map) {
+            if ("chatid" == part.first) {
+                chatid = part.second.body;
             }
-            if ("InputFile" == partName)
-            {
-                auto fileHeaders = partValue.headers.find("Content-Disposition");
-                if (fileHeaders == partValue.headers.end())
-                {
-                    return crow::response(400, "No content-disposition found");
-                }
-                auto params = fileHeaders->second.params.find("filename");
-                if (params == fileHeaders->second.params.end())
-                {
-                    return crow::response(400, "No filename found");
-                }
-                const std::string fileName{params->second};
-                try
-                {
-                    auto conn = connectToDatabase();
-                    if (!conn)
-                    {
-                        return crow::response(500, "Failed to connect to database");
+            else if ("InputFile" == part.first) {
+                auto fileHeaders = part.second.headers.find("Content-Disposition");
+                if (fileHeaders != part.second.headers.end()) {
+                    auto params = fileHeaders->second.params.find("filename");
+                    if (params != fileHeaders->second.params.end()) {
+                        fileName = params->second;
+                        fileBody = part.second.body;
                     }
-                    pqxx::work transaction(*conn);
-                    auto fileData = pqxx::bytes_view{reinterpret_cast<const std::byte *>(part.second.body.data()), part.second.body.size()};
-                    pqxx::result res = transaction.exec("INSERT INTO documents VALUES ($1, $2, $3, $4)",
-                                                        pqxx::params{email, fileName, fileData, chatid});
-                    transaction.commit();
-                    break;
-                }
-                catch (std::exception &e)
-                {
-                    std::cerr << e.what() << std::endl;
-                    return crow::response(500, "Internal error");
                 }
             }
         }
-        return crow::response(202, "Successfully uploaded file");
+
+        if (chatid.empty() || fileName.empty() || fileBody.empty()) {
+            return crow::response(400, "Missing data");
+        }
+
+        try {
+            auto conn = connectToDatabase();
+            pqxx::work transaction(*conn);
+
+            auto fileData = pqxx::bytes_view{
+                reinterpret_cast<const std::byte *>(fileBody.data()),
+                fileBody.size()
+            };
+            transaction.exec("INSERT INTO documents (email, filename, data, chatid) VALUES ($1, $2, $3, $4)", pqxx::params{email, fileName, fileData, chatid});
+
+            transaction.commit();
+            return crow::response(200, "Upload Successful");
+        } catch (const std::exception &e) {
+            std::cerr << e.what() << std::endl;
+            return crow::response(500, "Internal Server Error");
+        }
     });
 
     CROW_ROUTE(app, "/profile").methods("GET"_method)([&app](const crow::request &req)
