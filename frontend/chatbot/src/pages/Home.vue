@@ -33,23 +33,25 @@ import divider from "@/assets/icons/divider.svg";
       </RouterLink>
     </header>
 
-    <!-- HERO -->
-    <section class="relative mx-auto max-w-[1500px] px-6 pb-28 pt-6 md:px-10">
-      <div class="relative mx-auto flex flex-col items-center text-center">
-        <img :src="gavel" alt="" aria-hidden="true" class="pointer-events-none absolute left-1/2 top-0 w-[55%] max-w-[600px] -translate-x-1/2 -translate-y-[35%] opacity-95" />
-        <h1 class="font-mega relative leading-[0.85]" style="font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: clamp(5rem,16vw,18rem); letter-spacing: -0.05em; color: #78d5b9; text-shadow: 1px 0 0 #1e6d55, 0 1px 0 #1e6d55, -1px 0 0 #1e6d55, 0 -1px 0 #1e6d55">LEGALEYE</h1>
-        <h2 class="relative mt-10 font-semibold tracking-tight" style="font-family: Inter, sans-serif; font-size: clamp(1.8rem,3.2vw,2.8rem); font-weight: 600; letter-spacing: -0.07em; color: #1e6d55; text-shadow: 0px 4px 4px rgba(0,0,0,0.25)">Legal Intelligence, Reimagined</h2>
-        <p class="relative mt-5 max-w-3xl font-medium leading-relaxed" style="font-family: Poppins, sans-serif; font-size: clamp(1.1rem,1.8vw,2rem); font-weight: 500; letter-spacing: -0.06em; color: #1e6d55">
-          Stay informed with AI-driven case analysis, contract intelligence, and instant legal summaries.
-        </p>
-        <RouterLink to="/signup" class="relative mt-10 rounded-full bg-leaf-deep px-14 py-4 font-semibold text-white transition hover:scale-[1.02]" style="font-family: Inter, sans-serif; font-size: 24px; box-shadow: -20px -20px 50px rgba(64,241,123,0.25), 20px 20px 50px rgba(19,235,76,0.25)">
+  <!-- HERO -->
+  <section class="relative mx-auto max-w-[1500px] px-6 pb-28 pt-6 md:px-10">
+    <div class="relative mx-auto flex flex-col items-center text-center">
+      <img :src="gavel" alt="" aria-hidden="true" class="pointer-events-none absolute left-1/2 top-0 w-[55%] max-w-[600px] -translate-x-1/2 -translate-y-[35%] opacity-95" />
+      <h1 class="font-mega relative leading-[0.85]" style="font-family: 'Bebas Neue', sans-serif; font-weight: 400; font-size: clamp(5rem,16vw,18rem); letter-spacing: -0.05em; color: #78d5b9; text-shadow: 1px 0 0 #1e6d55, 0 1px 0 #1e6d55, -1px 0 0 #1e6d55, 0 -1px 0 #1e6d55">LEGALEYE</h1>
+      <h2 class="relative mt-10 font-semibold tracking-tight" style="font-family: Inter, sans-serif; font-size: clamp(1.8rem,3.2vw,2.8rem); font-weight: 600; letter-spacing: -0.07em; color: #1e6d55; text-shadow: 0px 4px 4px rgba(0,0,0,0.25)">Legal Intelligence, Reimagined</h2>
+      <p class="relative mt-5 max-w-3xl font-medium leading-relaxed" style="font-family: Poppins, sans-serif; font-size: clamp(1.1rem,1.8vw,2rem); font-weight: 500; letter-spacing: -0.06em; color: #1e6d55">
+        Stay informed with AI-driven case analysis, contract intelligence, and instant legal summaries.
+      </p>
+      <div class="relative mt-10 flex items-center gap-4">
+        <RouterLink to="/signup" class="rounded-full bg-leaf-deep px-14 py-4 font-semibold text-white transition hover:scale-[1.02]" style="font-family: Inter, sans-serif; font-size: 24px; box-shadow: -20px -20px 50px rgba(64,241,123,0.25), 20px 20px 50px rgba(19,235,76,0.25)">
           Get Started
         </RouterLink>
-         <RouterLink to="/download-extension" class="rounded-full border-2 border-leaf-deep px-14 py-4 font-semibold text-leaf-deep transition hover:scale-[1.02] hover:bg-leaf-deep/10" style="font-family: Inter, sans-serif; font-size: 24px;">
+        <a href="/extension.zip" download class="rounded-full border-2 border-leaf-deep px-14 py-4 font-semibold text-leaf-deep transition hover:scale-[1.02] hover:bg-leaf-deep/10" style="font-family: Inter, sans-serif; font-size: 24px;">
           Download Extension
-        </RouterLink>
+        </a>
       </div>
-    </section>
+    </div>
+  </section>
 
     <!-- DIVIDER -->
     <div class="flex justify-center pb-12">
