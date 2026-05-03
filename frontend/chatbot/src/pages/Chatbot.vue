@@ -5,6 +5,7 @@ import { Plus, Settings, Search, Send, Smile, MessageSquare, ChevronDown, FileTe
 import axios from "axios";
 import { useRouter, useRoute } from "vue-router";
 import { API_BASE } from "@/api";
+import * as MarkdownIt from "markdown-it";
 
 type Source = { name: string; active?: boolean };
 type Message = { from: "user" | "model"; text: string };
@@ -12,6 +13,8 @@ type Message = { from: "user" | "model"; text: string };
 const sources = ref<Source[]>([{ name: "Source 1", active: true }, { name: "Source 2" }]);
 const messages = ref<Message[]>([]);
 
+const md = new (MarkdownIt as any)();
+const renderMarkdown = (text: string) => md.render(text);
 const isThinking = ref(false);
 const input = ref("");
 
@@ -218,16 +221,20 @@ onMounted(() => {
       </div>
 
       <div class="flex-1 px-6 md:px-10 py-8 overflow-y-auto">
-        <div class="mx-auto max-w-3xl flex flex-col gap-6">
-          <div v-for="(m, i) in messages" :key="i" class="flex items-end gap-3" :class="m.from === 'user' ? 'justify-end' : 'justify-start'">
-            <div v-if="m.from === 'model'" class="h-10 w-10 rounded-lg bg-leaf-deep flex items-center justify-center text-white text-sm font-bold">L</div>
-            <div class="relative max-w-[80%] rounded-[10px] px-5 py-4 text-[18px] leading-snug bg-white" style="border: 1px solid #ddd; color: rgba(41,41,41,0.85); box-shadow: 0px 1px 2.29px rgba(0,0,0,0.13)">{{ m.text }}</div>
-            <div v-if="m.from === 'user'" class="h-10 w-10 rounded-lg bg-mint-soft flex items-center justify-center text-leaf-deep text-sm font-bold">U</div>
+        <div v-for="(m, i) in messages" :key="i" class="flex items-end gap-3" :class="m.from === 'user' ? 'justify-end' : 'justify-start'">
+
+          <div v-if="m.from === 'model'" class="h-10 w-10 rounded-lg bg-leaf-deep flex items-center justify-center text-white text-sm font-bold">L</div>
+
+          <div
+              class="relative max-w-[80%] rounded-[10px] px-5 py-4 text-[18px] leading-snug bg-white markdown-container"
+              style="border: 1px solid #ddd; color: rgba(41,41,41,0.85); box-shadow: 0px 1px 2.29px rgba(0,0,0,0.13)"
+          >
+            <div v-if="m.from === 'model'" v-html="renderMarkdown(m.text)"></div>
+            <span v-else>{{ m.text }}</span>
           </div>
-          <div v-if="isThinking" class="flex items-end gap-3 justify-start">
-            <div class="h-10 w-10 rounded-lg bg-leaf-deep flex items-center justify-center text-white text-sm font-bold">L</div>
-            <div class="italic text-gray-400 text-sm">LexAssist is thinking...</div>
-          </div>
+
+          <div v-if="m.from === 'user'" class="h-10 w-10 rounded-lg bg-mint-soft flex items-center justify-center text-leaf-deep text-sm font-bold">U</div>
+        </div>
         </div>
       </div>
 
@@ -242,6 +249,39 @@ onMounted(() => {
         </div>
       </div>
     </div>
-  </div>
 </template>
+<style scoped>
+/* Styles for the rendered Markdown */
+.markdown-container :deep(h1),
+.markdown-container :deep(h2),
+.markdown-container :deep(h3) {
+  font-weight: 700;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: #0b4538;
+}
+
+.markdown-container :deep(p) {
+  margin-bottom: 0.75rem;
+}
+
+.markdown-container :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-container :deep(ul),
+.markdown-container :deep(ol) {
+  margin-left: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.markdown-container :deep(li) {
+  list-style-type: disc;
+}
+
+.markdown-container :deep(strong) {
+  font-weight: 800;
+  color: #000;
+}
+</style>
 
