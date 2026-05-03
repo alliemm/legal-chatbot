@@ -5,7 +5,7 @@ import { Plus, Settings, Search, Send, Smile, MessageSquare, ChevronDown, FileTe
 import axios from "axios";
 import { useRouter, useRoute } from "vue-router";
 import { API_BASE } from "@/api";
-import * as MarkdownIt from "markdown-it";
+import MarkdownIt from "markdown-it";
 
 type Source = { name: string; active?: boolean };
 type Message = { from: "user" | "model"; text: string };
@@ -13,8 +13,9 @@ type Message = { from: "user" | "model"; text: string };
 const sources = ref<Source[]>([{ name: "Source 1", active: true }, { name: "Source 2" }]);
 const messages = ref<Message[]>([]);
 
-const md = new (MarkdownIt as any)();
+const md = new MarkdownIt();
 const renderMarkdown = (text: string) => md.render(text);
+
 const isThinking = ref(false);
 const input = ref("");
 
@@ -155,6 +156,7 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen w-full bg-cream flex" style="font-family: Montserrat, Inter, sans-serif">
+
     <div v-if="showFileUpload" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border-4 border-leaf-deep relative">
         <button @click="showFileUpload = false" class="absolute top-4 right-4 text-gray-500 hover:text-black text-xl">✕</button>
@@ -170,6 +172,7 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
     <!-- SIDEBAR -->
     <aside class="hidden md:flex flex-col w-[360px] m-6 rounded-2xl text-white/80 relative overflow-hidden" style="background-color: #0b4538; border: 3px solid #f8f8ff; box-shadow: 0 4px 6px rgba(15,11,11,0.1); min-height: calc(100vh - 48px)">
       <div class="absolute inset-1 rounded-2xl pointer-events-none" style="border: 3px solid #f5f5f5" />
@@ -178,13 +181,7 @@ onMounted(() => {
           <Plus class="h-5 w-5" />
           <span>Add new source</span>
         </button>
-
-        <button
-          v-for="(s, i) in sources"
-          :key="i"
-          class="flex items-center justify-end gap-2 px-4 h-[44px] rounded-md text-white text-[15px] font-medium text-right"
-          :style="{ backgroundColor: s.active ? '#1e6d55' : '#0a0c19', border: '2px solid #282934' }"
-        >
+        <button v-for="(s, i) in sources" :key="i" class="flex items-center justify-end gap-2 px-4 h-[44px] rounded-md text-white text-[15px] font-medium text-right" :style="{ backgroundColor: s.active ? '#1e6d55' : '#0a0c19', border: '2px solid #282934' }">
           <FileText class="h-4 w-4 opacity-70" />
           <span>{{ s.name }}</span>
         </button>
@@ -210,8 +207,8 @@ onMounted(() => {
             <span class="font-bold" style="font-family: Inter, sans-serif; font-size: 24px; color: #085041">Legaleye</span>
           </RouterLink>
           <div class="flex items-center gap-4 text-leaf-deep">
-            <button class="h-12 w-12 rounded-full flex items-center justify-center hover:bg-mint-soft/40" aria-label="Search"><Search class="h-6 w-6" /></button>
-            <button class="h-12 w-12 rounded-full flex items-center justify-center hover:bg-mint-soft/40" aria-label="Settings"><Settings class="h-6 w-6" /></button>
+            <button class="h-12 w-12 rounded-full flex items-center justify-center hover:bg-mint-soft/40"><Search class="h-6 w-6" /></button>
+            <button class="h-12 w-12 rounded-full flex items-center justify-center hover:bg-mint-soft/40"><Settings class="h-6 w-6" /></button>
           </div>
         </div>
       </header>
@@ -221,35 +218,37 @@ onMounted(() => {
       </div>
 
       <div class="flex-1 px-6 md:px-10 py-8 overflow-y-auto">
-        <div v-for="(m, i) in messages" :key="i" class="flex items-end gap-3" :class="m.from === 'user' ? 'justify-end' : 'justify-start'">
-
-          <div v-if="m.from === 'model'" class="h-10 w-10 rounded-lg bg-leaf-deep flex items-center justify-center text-white text-sm font-bold">L</div>
-
-          <div
-              class="relative max-w-[80%] rounded-[10px] px-5 py-4 text-[18px] leading-snug bg-white markdown-container"
-              style="border: 1px solid #ddd; color: rgba(41,41,41,0.85); box-shadow: 0px 1px 2.29px rgba(0,0,0,0.13)"
-          >
-            <div v-if="m.from === 'model'" v-html="renderMarkdown(m.text)"></div>
-            <span v-else>{{ m.text }}</span>
+        <div class="mx-auto max-w-3xl flex flex-col gap-6">
+          <div v-for="(m, i) in messages" :key="i" class="flex items-end gap-3" :class="m.from === 'user' ? 'justify-end' : 'justify-start'">
+            <div v-if="m.from === 'model'" class="h-10 w-10 rounded-lg bg-leaf-deep flex items-center justify-center text-white text-sm font-bold">L</div>
+            <div class="relative max-w-[80%] rounded-[10px] px-5 py-4 text-[18px] leading-snug bg-white markdown-container" style="border: 1px solid #ddd; color: rgba(41,41,41,0.85); box-shadow: 0px 1px 2.29px rgba(0,0,0,0.13)">
+              <div v-if="m.from === 'model'" v-html="renderMarkdown(m.text)"></div>
+              <span v-else>{{ m.text }}</span>
+            </div>
+            <div v-if="m.from === 'user'" class="h-10 w-10 rounded-lg bg-mint-soft flex items-center justify-center text-leaf-deep text-sm font-bold">U</div>
           </div>
-
-          <div v-if="m.from === 'user'" class="h-10 w-10 rounded-lg bg-mint-soft flex items-center justify-center text-leaf-deep text-sm font-bold">U</div>
-        </div>
+          <div v-if="isThinking" class="flex items-end gap-3 justify-start">
+            <div class="h-10 w-10 rounded-lg bg-leaf-deep flex items-center justify-center text-white text-sm font-bold">L</div>
+            <div class="italic text-gray-400 text-sm">LexAssist is thinking...</div>
+          </div>
         </div>
       </div>
+
 
       <div class="px-6 md:px-10 pb-8">
         <div class="mx-auto max-w-5xl rounded-xl bg-white relative" style="border: 2px solid #02040f; box-shadow: 0 1px 2.29px rgba(0,0,0,0.13)">
           <input v-model="input" @keydown.enter="send" placeholder="Type a new message here" class="w-full bg-transparent px-6 py-6 pr-40 text-[16px] outline-none" style="color: #424242" />
           <div class="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 text-leaf-deep">
-            <button class="h-11 w-11 rounded-full flex items-center justify-center hover:bg-mint-soft/40" aria-label="Conversations"><MessageSquare class="h-5 w-5" /></button>
-            <button class="h-11 w-11 rounded-full flex items-center justify-center hover:bg-mint-soft/40" aria-label="Emoji"><Smile class="h-5 w-5" /></button>
-            <button @click="send" class="h-11 w-11 rounded-full flex items-center justify-center bg-leaf-deep text-white hover:opacity-90" aria-label="Send"><Send class="h-5 w-5" /></button>
+            <button class="h-11 w-11 rounded-full flex items-center justify-center hover:bg-mint-soft/40"><MessageSquare class="h-5 w-5" /></button>
+            <button class="h-11 w-11 rounded-full flex items-center justify-center hover:bg-mint-soft/40"><Smile class="h-5 w-5" /></button>
+            <button @click="send" class="h-11 w-11 rounded-full flex items-center justify-center bg-leaf-deep text-white hover:opacity-90"><Send class="h-5 w-5" /></button>
           </div>
         </div>
       </div>
     </div>
+  </div>
 </template>
+
 <style scoped>
 /* Styles for the rendered Markdown */
 .markdown-container :deep(h1),
