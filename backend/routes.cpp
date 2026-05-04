@@ -472,9 +472,10 @@ void setupRoutes(crow::App<crow::CORSHandler, crow::CookieParser, Session> &app)
         if (!data || !data.has("text")) return crow::response(400, "Missing text");
         std::string text = data["text"].s();
         if (text.empty()) return crow::response(400, "Text cannot be empty");
-        std::vector<ChatMessage> emptyHistory;
-        std::vector<StoredDocument> emptyDocs;
-        const std::string geminiRequestBody = buildGeminiRequestBody(text, emptyHistory, emptyDocs);
+                crow::json::wvalue payload;
+        payload["contents"][0]["role"] = "user";
+        payload["contents"][0]["parts"][0]["text"] = text;
+        const std::string geminiRequestBody = payload.dump();
         const GeminiHttpResponse geminiResponse = sendGeminiRequest(geminiRequestBody);
         if (!geminiResponse.error.empty() || geminiResponse.statusCode < 200 || geminiResponse.statusCode >= 300)
             return crow::response(502, "Gemini request failed");

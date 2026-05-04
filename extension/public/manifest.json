@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "AI-driven contract intelligence and legal summaries in your browser.",
   "permissions": ["activeTab", "storage", "tabs"],
+  "host_permissions": ["http://localhost:18080/*"],
   "background" : { "service_worker" : "background.js" },
   "content_scripts": [
     {

@@ -26,6 +26,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 if (message.type === "TC_TEXT_EXTRACTED") {
     const tabId = sender.tab?.id;
+    if (tabId == null) return;   
     tabStates.set(tabId, { ...tabStates.get(tabId), pageText: message.text });
     return;
   }

@@ -1,5 +1,6 @@
 <script setup>
 import { ref , onMounted } from "vue";
+import { marked } from "marked";
 
 const props = defineProps(["pageText"]);
 const clauses = ref([]);
@@ -12,10 +13,11 @@ onMounted(async () => {
     const res = await fetch("http://localhost:18080/analyze-tc", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: `Analyze this Terms & Conditions text and return ONLY a valid JSON array with no markdown, no extra text, nothing else. Each item must have "text" (the exact risky clause) and "risk" ("high", "medium", or "low"). T&C text: ${props.pageText}` })
+      body: JSON.stringify({ text: `...T&C text: ${props.pageText.slice(0, 4000)}` })
     });
     const data = await res.json();
-    clauses.value = JSON.parse(data.reply);
+    const raw = data.reply.replace(/```json\n?|\n?```/g, "").trim();
+    clauses.value = JSON.parse(raw).map(c => ({ ...c, text: marked.parse(c.text) }));
   } catch (e) {
     console.error("Failed to load clauses:", e);
   } finally {
@@ -40,7 +42,7 @@ onMounted(async () => {
     <div class="view-body">
       <div v-if="loading">Analyzing clauses...</div>
       <p v-else-if="clauses.length === 0">No risky clauses found.</p>
-      <p v-for="(c, i) in clauses" :key="i" class="clause" :class="c.risk">{{ c.text }}</p>
+      <p v-for="(c, i) in clauses" :key="i" class="clause" :class="c.risk" v-html="c.text"></p>
     </div>
     <button class="menu-btn" @click="emit('go', 'detected')">MENU</button>
   </div>

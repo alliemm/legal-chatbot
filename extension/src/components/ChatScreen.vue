@@ -1,5 +1,6 @@
 <script setup>
 import { ref, nextTick } from "vue";
+import { marked } from "marked";
 
 const props = defineProps(["pageText"]);
 const emit = defineEmits(["go"]);
@@ -24,7 +25,7 @@ async function send() {
       body: JSON.stringify({ text: `You are a legal assistant. Answer this question in plain English about the following Terms & Conditions. Do NOT use markdown, headers, asterisks, or bullet symbols. Write in plain paragraphs only. Do NOT return JSON. Question: "${v}". T&C text: ${props.pageText.slice(0, 4000)}` })
     });
     const data = await res.json();
-    messages.value.push({ role: "ai", text: data.reply });
+    messages.value.push({ role: "ai", text: marked.parse(data.reply) });
   } catch (e) {
     messages.value.push({ role: "ai", text: "Something went wrong. Please try again." });
   } finally {
@@ -43,7 +44,8 @@ async function send() {
         Reminder: This AI chatbot is for informational purposes only and does not constitute legal advice.
       </div>
       <div v-for="(m, i) in messages" :key="i" class="msg" :class="{ me: m.role === 'me' }">
-        {{ m.text }}
+        <span v-if="m.role === 'ai'" v-html="m.text"></span>
+        <span v-else>{{ m.text }}</span>
       </div>
       <div v-if="isThinking" class="msg">Thinking...</div>
     </div>

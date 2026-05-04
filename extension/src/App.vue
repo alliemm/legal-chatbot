@@ -6,7 +6,7 @@ import ClausesScreen from "./components/ClausesScreen.vue";
 import SummaryScreen from "./components/SummaryScreen.vue";
 
 const EMAIL = localStorage.getItem("user_token");
-const screen = ref("detected");
+const screen = ref("loading");
 const pageText = ref("");
 const go = (target) => (screen.value = target);
 
@@ -15,10 +15,8 @@ onMounted(() => {
     const tabId = tabs[0]?.id;
     if (tabId == null) return;
     chrome.runtime.sendMessage({ type: "GET_STATUS", tabId }, (response) => {
-      if (response?.detected) {
-        screen.value = "detected";
-        pageText.value = response.pageText || "";
-      }
+       pageText.value = response?.pageText || "";
+       screen.value = response?.detected ? "detected" : "not-detected";
     });
   });
 });
@@ -33,7 +31,8 @@ onMounted(() => {
           <span class="brand-name">Legaleye</span>
         </div>
       </div>
-
+      <div v-if="screen === 'loading'" class="notice">Loading...</div>
+      <div v-else-if="screen === 'not-detected'" class="notice">No Terms & Conditions detected on this page.</div>
       <DetectedScreen v-if="screen === 'detected'" :email="EMAIL" @go="go" />
       <ChatScreen v-else-if="screen === 'chat'" :pageText="pageText" @go="go" />
       <ClausesScreen v-else-if="screen === 'clauses'" :pageText="pageText" @go="go" />
