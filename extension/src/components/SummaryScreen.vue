@@ -9,7 +9,7 @@ const loading = ref(true);
 
 onMounted(async () => {
   try {
-    const res = await fetch("http://localhost:18080/analyze-tc", {
+    const res = await fetch("https://legal-chatbot-4t8e.onrender.com/analyze-tc", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: `You are a legal assistant. Summarize the following Terms & Conditions in 9-10 plain English bullet points. Do NOT return JSON. T&C text: ${props.pageText}` })
