@@ -466,4 +466,21 @@ void setupRoutes(crow::App<crow::CORSHandler, crow::CookieParser, Session> &app)
             return crow::response(500, "Failed to process chat request");
         }
     });
+
+    CROW_ROUTE(app, "/analyze-tc").methods("POST"_method)([](const crow::request &req) {
+        auto data = crow::json::load(req.body);
+        if (!data || !data.has("text")) return crow::response(400, "Missing text");
+        std::string text = data["text"].s();
+        if (text.empty()) return crow::response(400, "Text cannot be empty");
+        std::vector<ChatMessage> emptyHistory;
+        std::vector<StoredDocument> emptyDocs;
+        const std::string geminiRequestBody = buildGeminiRequestBody(text, emptyHistory, emptyDocs);
+        const GeminiHttpResponse geminiResponse = sendGeminiRequest(geminiRequestBody);
+        if (!geminiResponse.error.empty() || geminiResponse.statusCode < 200 || geminiResponse.statusCode >= 300)
+            return crow::response(502, "Gemini request failed");
+        const std::string reply = extractGeminiReply(geminiResponse.body);
+        crow::json::wvalue response;
+        response["reply"] = reply;
+        return crow::response(200, response);
+    });
 }

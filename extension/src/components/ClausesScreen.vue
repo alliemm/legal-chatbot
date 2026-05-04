@@ -1,11 +1,27 @@
 <script setup>
-import { ref } from "vue";
+import { ref , onMounted } from "vue";
 
+const props = defineProps(["pageText"]);
+const clauses = ref([]);
 const emit = defineEmits(["go"]);
 const tooltipActive = ref(false);
+const loading = ref(true);
 
-const sampleClause =
-  "It's always good to bring a slower friend with you on a hike. If you happen to come across bears, the whole group doesn't have to worry. Only the slowest in the group do. That was the lesson they were about to...";
+onMounted(async () => {
+  try {
+    const res = await fetch("http://localhost:18080/analyze-tc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: `Analyze this Terms & Conditions text and return ONLY a valid JSON array with no markdown, no extra text, nothing else. Each item must have "text" (the exact risky clause) and "risk" ("high", "medium", or "low"). T&C text: ${props.pageText}` })
+    });
+    const data = await res.json();
+    clauses.value = JSON.parse(data.reply);
+  } catch (e) {
+    console.error("Failed to load clauses:", e);
+  } finally {
+    loading.value = false;
+  }
+});
 </script>
 
 <template>
@@ -22,10 +38,9 @@ const sampleClause =
       </span>
     </div>
     <div class="view-body">
-      <p class="clause">{{ sampleClause }}</p>
-      <p class="clause">{{ sampleClause }}</p>
-      <p class="clause bold">{{ sampleClause }} learn that day.</p>
-      <p class="clause">{{ sampleClause }}</p>
+      <div v-if="loading">Analyzing clauses...</div>
+      <p v-else-if="clauses.length === 0">No risky clauses found.</p>
+      <p v-for="(c, i) in clauses" :key="i" class="clause" :class="c.risk">{{ c.text }}</p>
     </div>
     <button class="menu-btn" @click="emit('go', 'detected')">MENU</button>
   </div>

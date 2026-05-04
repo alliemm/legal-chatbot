@@ -1,9 +1,3 @@
-// content.js — Terms & Conditions detection content script
-// Runs in the context of every page the user visits.
-
-// ---------------------------------------------------------------------------
-// Keywords and URL slugs used for heuristic scoring
-// ---------------------------------------------------------------------------
 
 const TC_KEYWORDS = [
   "terms and conditions",
@@ -32,37 +26,28 @@ const TC_URL_SLUGS = [
   "/acceptable-use",
 ];
 
-// ---------------------------------------------------------------------------
-// detectTermsAndConditions()
-// Scores the current page across several signals and returns a result object.
-// ---------------------------------------------------------------------------
-
 function detectTermsAndConditions() {
   let score = 0;
   const matchedSignals = [];
-
   const titleLower = document.title.toLowerCase();
   const urlPath = location.pathname.toLowerCase();
 
-  // Signal: page title contains a keyword (+3 points)
   for (const keyword of TC_KEYWORDS) {
     if (titleLower.includes(keyword)) {
       score += 3;
       matchedSignals.push(`title:"${keyword}"`);
-      break; // only award once regardless of how many keywords match
+      break;
     }
   }
 
-  // Signal: URL path contains a known slug (+3 points)
   for (const slug of TC_URL_SLUGS) {
     if (urlPath.includes(slug)) {
       score += 3;
       matchedSignals.push(`url:"${slug}"`);
-      break; // only award once
+      break;
     }
   }
 
-  // Signal: any <h1> contains a keyword (+2 points, first match only)
   const h1Elements = document.querySelectorAll("h1");
   outerH1: for (const h1 of h1Elements) {
     const h1Text = h1.innerText.toLowerCase();
@@ -70,12 +55,11 @@ function detectTermsAndConditions() {
       if (h1Text.includes(keyword)) {
         score += 2;
         matchedSignals.push(`h1:"${keyword}"`);
-        break outerH1; // stop after the first matching h1
+        break outerH1;
       }
     }
   }
 
-  // Signal: <h2> or <h3> elements contain keywords (+1 each, max +2 points)
   let subheadingPoints = 0;
   const subheadings = document.querySelectorAll("h2, h3");
   for (const el of subheadings) {
@@ -85,13 +69,12 @@ function detectTermsAndConditions() {
       if (elText.includes(keyword)) {
         subheadingPoints += 1;
         matchedSignals.push(`${el.tagName.toLowerCase()}:"${keyword}"`);
-        break; // one point per element, move to next element
+        break;
       }
     }
   }
   score += subheadingPoints;
 
-  // Signal: body text (first 5000 chars) contains 2+ distinct keywords (+1 point)
   const bodyText = (document.body.innerText || "").slice(0, 5000).toLowerCase();
   const bodyMatches = TC_KEYWORDS.filter((kw) => bodyText.includes(kw));
   if (bodyMatches.length >= 2) {
@@ -99,18 +82,8 @@ function detectTermsAndConditions() {
     matchedSignals.push(`body:${bodyMatches.length} keywords`);
   }
 
-  // Threshold: score >= 3 is considered a T&C page
-  return {
-    detected: score >= 3,
-    score,
-    matchedSignals,
-  };
+  return { detected: score >= 3, score, matchedSignals };
 }
-
-// ---------------------------------------------------------------------------
-// sendResult()
-// Sends the detection result to the background service worker.
-// ---------------------------------------------------------------------------
 
 function sendResult(result) {
   chrome.runtime.sendMessage({
@@ -122,32 +95,60 @@ function sendResult(result) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// MutationObserver setup
-// Watches for DOM changes (useful for SPAs that load content dynamically).
-// Debounced by 1 second; only re-runs detection when the visible text has
-// changed by more than 500 characters since the last check.
-// ---------------------------------------------------------------------------
+function injectPanel() {
+  if (document.getElementById('lex-assist-host')) return;
+
+  const host = document.createElement('div');
+  host.id = 'lex-assist-host';
+  document.body.appendChild(host);
+
+  const shadow = host.attachShadow({ mode: 'open' });
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = `
+    <style>
+      .lex-popup { position: fixed; bottom: 30px; right: 30px; width: 320px; background: #ffffff; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; z-index: 2147483647; border: 1px solid #e0e0e0; overflow: hidden; animation: slideIn 0.4s ease-out; }
+      @keyframes slideIn { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      .header { background: #0b4538; color: white; padding: 15px; font-weight: bold; display: flex; align-items: center; gap: 10px; }
+      .body { padding: 15px; color: #333; font-size: 14px; line-height: 1.5; }
+      .btn-start { background: #0b4538; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: 600; margin-top: 10px; transition: 0.2s; }
+      .btn-start:hover { opacity: 0.9; }
+      .btn-close { color: #999; cursor: pointer; font-size: 18px; margin-left: auto; }
+    </style>
+    <div class="lex-popup">
+      <div class="header">
+        <span>⚖️ LegalEye</span>
+        <span id="close-x" class="btn-close">&times;</span>
+      </div>
+      <div class="body">
+        <b>Terms Detected!</b><br>
+        Click the extension icon to analyze this page's terms and conditions!
+        <button id="start-lex" class="btn-start">Close</button>
+      </div>
+    </div>
+  `;
+  shadow.appendChild(wrapper);
+
+  shadow.getElementById('start-lex').onclick = () => {
+    chrome.runtime.sendMessage({ action: "OPEN_LEXASSIST" });
+    host.remove();
+  };
+  shadow.getElementById('close-x').onclick = () => host.remove();
+}
 
 let debounceTimer = null;
 let lastBodyTextLength = document.body.innerText.length;
 let observerActive = true;
 
 const observer = new MutationObserver(() => {
-  // Debounce: reset the timer on every mutation batch
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     const currentLength = document.body.innerText.length;
-
-    // Only re-run if the text content changed significantly
     if (Math.abs(currentLength - lastBodyTextLength) > 500) {
       lastBodyTextLength = currentLength;
-
       const result = detectTermsAndConditions();
       sendResult(result);
-
-      // Once detected, stop observing — no need to keep watching
       if (result.detected) {
+        injectPanel();
         observer.disconnect();
         observerActive = false;
       }
@@ -155,17 +156,11 @@ const observer = new MutationObserver(() => {
   }, 1000);
 });
 
-// ---------------------------------------------------------------------------
-// Initialisation
-// 1. Run detection immediately on script load.
-// 2. Start the MutationObserver for late-loading SPA content.
-// ---------------------------------------------------------------------------
-
-// Initial detection run
 const initialResult = detectTermsAndConditions();
 sendResult(initialResult);
 
 if (initialResult.detected) {
+  injectPanel();
   chrome.runtime.sendMessage({
     type: "TC_TEXT_EXTRACTED",
     text: document.body.innerText,
@@ -173,13 +168,9 @@ if (initialResult.detected) {
   });
 }
 
-// Only set up the observer if the page wasn't already detected as T&C,
-// and if document.body is available (it always should be in a content script).
 if (!initialResult.detected && document.body) {
   observer.observe(document.body, { childList: true, subtree: true });
 }
-
-// Highlight risky clauses sent back from the background script
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "HIGHLIGHT_CLAUSES") {

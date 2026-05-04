@@ -1,12 +1,11 @@
 // Service worker for the Chrome extension (Manifest V3)
 // Tracks terms & conditions detection state per tab
 
-// Map from tabId (number) -> detection result data
+
 const tabStates = new Map();
 
-// Listen for messages from content scripts and the popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // --- Content script reports detection result ---
+  // Content script reports detection result
   if (message.type === "TC_DETECTION_RESULT") {
     const tabId = sender.tab?.id;
     if (tabId == null) return;
@@ -25,28 +24,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
 
-  // Content script sends extracted T&C text for analysis
-  if (message.type === "TC_TEXT_EXTRACTED") {
+if (message.type === "TC_TEXT_EXTRACTED") {
     const tabId = sender.tab?.id;
-    fetch("https://legal-chatbot-4t8e.onrender.com/analyze-tc", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: message.text.slice(0, 8000) })
-    })
-    .then(res => res.json())
-    .then(data => {
-      try {
-        const clauses = JSON.parse(data.reply);
-        chrome.tabs.sendMessage(tabId, { type: "HIGHLIGHT_CLAUSES", clauses });
-      } catch (e) {
-        console.error("Failed to parse clauses:", e);
-      }
-    });
+    tabStates.set(tabId, { ...tabStates.get(tabId), pageText: message.text });
     return;
   }
 
 
-  // --- Popup requests the current status for a tab ---
+  // Popup requests the current status for a tab
   if (message.type === "GET_STATUS") {
     const state = tabStates.get(message.tabId) ?? { detected: false };
     sendResponse(state);
