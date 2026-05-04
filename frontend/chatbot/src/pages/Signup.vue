@@ -25,7 +25,7 @@ const signUp = async() =>{
     const token = response.data.token;
     localStorage.setItem('user_token', token);
     
-    router.push('/dashboard');
+    router.push('/survey');
   }catch(err: any){
     error.value = "An error occurred during sign up";
     console.error("Error during signup", err);
