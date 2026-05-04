@@ -243,7 +243,7 @@ crow::json::wvalue getNotebooks(const std::string &email)
         {
             std::string chatid = row[0].c_str();
             pqxx::result notebookInfo = nonTransaction.exec(
-                "SELECT title, TO_CHAR(MIN(time), 'Mon DD, YYYY') FROM chats WHERE chatid = $1 GROUP BY title ORDER BY MIN(time) DESC",
+                "SELECT title, TO_CHAR(MIN(time), 'Mon DD, YYYY') FROM chats WHERE chatid = $1 GROUP BY title",
                 pqxx::params{chatid});
             if (!notebookInfo.empty())
             {
