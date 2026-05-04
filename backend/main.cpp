@@ -28,7 +28,7 @@ int main()
 
     auto &cors = app.get_middleware<crow::CORSHandler>();
     cors.global()
-        .origin("*")
+        .origin("http://localhost:5173")
         .methods("POST"_method, "GET"_method, "DELETE"_method, "OPTIONS"_method)
         .allow_credentials()
         .headers("Content-Type", "Authorization", "Accept", "ChatID");
