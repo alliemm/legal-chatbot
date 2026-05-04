@@ -19,7 +19,7 @@ async function send() {
   if (chatArea.value) chatArea.value.scrollTop = chatArea.value.scrollHeight;
 
   try {
-    const res = await fetch("http://localhost:18080/analyze-tc", {
+    const res = await fetch("https://legal-chatbot-4t8e.onrender.com/analyze-tc", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: `You are a legal assistant. Answer this question in plain English about the following Terms & Conditions. Do NOT use markdown, headers, asterisks, or bullet symbols. Write in plain paragraphs only. Do NOT return JSON. Question: "${v}". T&C text: ${props.pageText.slice(0, 4000)}` })

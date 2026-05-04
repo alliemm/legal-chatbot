@@ -275,9 +275,9 @@ html, body {
 }
 
 .menu-btn {
-  position: absolute;
-  bottom: 10px;
-  left: 14px;
+  margin-top: auto;
+  padding-top: 10px;
+  align-self: flex-start;
   background: transparent;
   border: none;
   color: var(--leaf-deeper);

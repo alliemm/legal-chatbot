@@ -100,6 +100,14 @@ onMounted(() => {
           <Settings class="h-5 w-5" />
           <span>Settings</span>
         </RouterLink>
+          <a
+          href="/extension.zip"
+          download
+          class="hidden md:flex items-center gap-2 h-[55px] rounded-full px-6 text-[18px]"
+          style="background-color: rgba(184,224,212,0.8); color: #0e5c4a; box-shadow: 4px 4px 15px rgba(0,0,0,0.25); font-family: Inter, sans-serif"
+        >
+          <span>Download Extension</span>
+        </a>
         <button @click="logout" class="hidden md:flex items-center gap-2 h-[55px] rounded-full px-6 text-[18px]" style="background-color: #0e5c4a; color: #86e3ce; box-shadow: 4px 4px 15px rgba(0,0,0,0.25); font-family: Inter, sans-serif">
           <LogOut class="h-5 w-5" />
           <span>Logout</span>
