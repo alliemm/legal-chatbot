@@ -13,7 +13,7 @@
               <line x1="12" y1="17" x2="14.5" y2="19.5"/>
             </svg>
           </div>
-          <span class="brand-name">LexAssist</span>
+          <span class="brand-name">LegalEye</span>
         </div>
         <div class="top-bar-actions">
           <transition name="fade">
@@ -30,7 +30,7 @@
     <div class="profile-body">
       <div class="page-header">
         <h1 class="title">Profile & Preferences</h1>
-        <p class="subtitle">Customize how LexAssist analyzes documents for you</p>
+        <p class="subtitle">Customize how LegalEye analyzes documents for you</p>
       </div>
 
       <form @submit.prevent="save" class="form">
