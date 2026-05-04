@@ -86,7 +86,7 @@ onMounted(() => {
       <div class="mx-auto flex max-w-[1440px] items-center justify-between px-8 py-4">
         <RouterLink to="/" class="flex items-center gap-3">
           <Logo class="h-12 w-12 text-leaf-deep" />
-          <span class="font-bold tracking-tight" style="font-family: Inter, sans-serif; font-size: 32px; color: #085041; text-shadow: 4px 4px 10px rgba(0,0,0,0.25)">Legaleye</span>
+          <span class="font-bold tracking-tight" style="font-family: Inter, sans-serif; font-size: 32px; color: #085041; text-shadow: 4px 4px 10px rgba(0,0,0,0.25)">LegalEye</span>
         </RouterLink>
         <div class="flex items-center gap-4">
           <button class="h-[55px] w-[55px] rounded-full hidden md:flex items-center justify-center" style="background-color: #b8e0d4; box-shadow: 4px 4px 15px rgba(0,0,0,0.25)" aria-label="Search">
@@ -174,7 +174,7 @@ onMounted(() => {
 
           <div class="flex items-center gap-2 mb-6">
             <Logo class="h-7 w-7 text-leaf-deep" />
-            <span class="font-bold" style="font-family: Inter, sans-serif; font-size: 18px; color: #085041">Legaleye</span>
+            <span class="font-bold" style="font-family: Inter, sans-serif; font-size: 18px; color: #085041">LegalEye</span>
           </div>
 
           <label for="notebook-name" class="block text-[20px] font-bold mb-3" style="color: #0d2b22">Name your notebook :</label>
