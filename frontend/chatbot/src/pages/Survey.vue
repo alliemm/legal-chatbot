@@ -97,7 +97,7 @@ async function next() {
         workedWithLawyer: (ans[4] as string) ?? "",
       };
       await axios.post(`${API_BASE}/survey`, payload);
-      router.push("/profile");
+      router.push("/dashboard");
     } catch (err: any) {
       error.value = err.response?.data?.message || err.response?.data || "Could not submit survey. Please try again.";
     } finally {

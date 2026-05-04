@@ -400,6 +400,7 @@ void setupRoutes(crow::App<crow::CORSHandler, crow::CookieParser, Session> &app)
             return crow::response(500, "Gemini API key placeholder has not been replaced");
         }
         std::vector<ChatMessage> history = getChatHistory(email, chatid);
+        
         storeChatMessage(email, chatid, "user", message, title);
 
         std::vector<std::string> requestedDocuments;
