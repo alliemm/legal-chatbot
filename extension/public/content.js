@@ -167,7 +167,7 @@ sendResult(initialResult);
 
 if (initialResult.detected) {
   chrome.runtime.sendMessage({
-    type: "TC_PAGE_DETECTED",
+    type: "TC_TEXT_EXTRACTED",
     text: document.body.innerText,
     url: location.href
   });
