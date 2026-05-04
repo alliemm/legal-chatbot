@@ -11,7 +11,7 @@ const router = useRouter();
 
 type Notebook = { id: string; title: string; date: string; sources: string; isNew?: boolean };
 
-const NOTEBOOKS = ref<Notebook[]>([]);
+const NOTEBOOKS = ref<Notebook[]>([{ id: "new", title: "Add new chat", date: "", sources: "", isNew: true }]);
 
 const error = ref("");
 const showNamePopup = ref(false);
