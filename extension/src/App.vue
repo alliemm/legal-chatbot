@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted } from "vue";
+import UnlockScreen from "./components/UnlockScreen.vue";
 import DetectedScreen from "./components/DetectedScreen.vue";
 import ChatScreen from "./components/ChatScreen.vue";
 import ClausesScreen from "./components/ClausesScreen.vue";
@@ -11,12 +12,19 @@ const pageText = ref("");
 const go = (target) => (screen.value = target);
 
 onMounted(() => {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const tabId = tabs[0]?.id;
-    if (tabId == null) return;
-    chrome.runtime.sendMessage({ type: "GET_STATUS", tabId }, (response) => {
-       pageText.value = response?.pageText || "";
-       screen.value = response?.detected ? "detected" : "not-detected";
+  chrome.storage.local.get("user_token", ({ user_token }) => {
+    if (!user_token) {
+      screen.value = "unlock";
+      return;
+    }
+    EMAIL.value = user_token;
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tabId = tabs[0]?.id;
+      if (tabId == null) { screen.value = "not-detected"; return; }
+      chrome.runtime.sendMessage({ type: "GET_STATUS", tabId }, (response) => {
+        pageText.value = response?.pageText || "";
+        screen.value = response?.detected ? "detected" : "not-detected";
+      });
     });
   });
 });
@@ -31,6 +39,7 @@ onMounted(() => {
           <span class="brand-name">Legaleye</span>
         </div>
       </div>
+      <UnlockScreen v-if="screen === 'unlock'" @go="go" />
       <div v-if="screen === 'loading'" class="notice">Loading...</div>
       <div v-else-if="screen === 'not-detected'" class="notice">No Terms & Conditions detected on this page.</div>
       <DetectedScreen v-if="screen === 'detected'" :email="EMAIL" @go="go" />
