@@ -347,3 +347,23 @@ html, body {
   color: var(--leaf-deeper);
 }
 .msg.me { background: var(--leaf-deeper); color: white; margin-left: auto; }
+
+.unlock-input {
+  width: 100%;
+  max-width: 240px;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-family: inherit;
+  background: white;
+  color: var(--leaf-deeper);
+  margin-bottom: 10px;
+  outline: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.unlock-error {
+  font-size: 11px;
+  color: #dc2626;
+  margin-bottom: 8px;
+}

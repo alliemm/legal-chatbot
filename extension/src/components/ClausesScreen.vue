@@ -10,7 +10,8 @@ const loading = ref(true);
 
 onMounted(async () => {
   try {
-    const EMAIL = localStorage.getItem("user_token");
+    const { user_token: EMAIL } = await 
+    chrome.storage.local.get("user_token");
 
     const prefsRes = await fetch("https://legal-chatbot-4t8e.onrender.com/userPreferences", {
       headers: { "Authorization": EMAIL }
