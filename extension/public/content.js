@@ -157,15 +157,21 @@ const observer = new MutationObserver(() => {
   }, 1000);
 });
 
-const initialResult = detectTermsAndConditions();
-
-if (initialResult.detected) {
-  injectPanel();
+function initialize() {
+  const initialResult = detectTermsAndConditions();
+  if (initialResult.detected) {
+    injectPanel();
+  }
+  sendResult(initialResult);
+  if (!initialResult.detected && document.body) {
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
 }
-sendResult(initialResult);
 
-if (!initialResult.detected && document.body) {
-  observer.observe(document.body, { childList: true, subtree: true });
+if (document.readyState === "complete") {
+  initialize();
+} else {
+  window.addEventListener("load", initialize);
 }
 
 chrome.runtime.onMessage.addListener((message) => {
