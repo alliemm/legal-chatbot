@@ -1,11 +1,17 @@
 <script setup>
+import { ref, onMounted } from "vue";
+import UnlockScreen from "./components/UnlockScreen.vue";
+import DetectedScreen from "./components/DetectedScreen.vue";
+import ChatScreen from "./components/ChatScreen.vue";
+import ClausesScreen from "./components/ClausesScreen.vue";
+import SummaryScreen from "./components/SummaryScreen.vue";
+
 const EMAIL = localStorage.getItem("user_token");
 const screen = ref("loading");
 const pageText = ref("");
-const currentTabId = ref(null);   // ← add this
+const currentTabId = ref(null);  
 
 const go = (target) => {
-  // ← replace the old single-line go with this:
   if (["chat", "clauses", "summary"].includes(target) && currentTabId.value != null) {
     chrome.runtime.sendMessage({ type: "GET_STATUS", tabId: currentTabId.value }, (response) => {
       pageText.value = response?.pageText || "";
