@@ -241,6 +241,28 @@
           </div>
         </div>
 
+        <!-- SURVEY RESULTS -->
+        <div v-if="surveyData" class="section-card">
+          <div class="section-head">
+            <div class="section-icon teal">
+              <svg viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="section-title">Survey Results</h2>
+              <p class="section-desc">Your answers from the onboarding survey</p>
+            </div>
+          </div>
+          <div class="survey-results">
+            <div v-for="item in surveyItems" :key="item.key" class="survey-row">
+              <span class="survey-label">{{ item.label }}</span>
+              <span class="survey-value">{{ item.value }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- 6. DOCUMENT CONTEXT -->
         <div class="section-card">
           <div class="section-head">
@@ -380,6 +402,7 @@ export default {
       pwLoading: false,
       pwError: '',
       pwSaved: false,
+      surveyData: null,
 
       focusAreaOptions: [
         { value: 'privacy',    label: 'Privacy & data collection',    hint: 'How personal data is collected, stored, or shared' },
@@ -459,8 +482,33 @@ export default {
   async created() {
     try {
       const res = await axios.get(`${API_BASE}/profile`)
-      if (res.data) Object.assign(this.prefs, res.data)
+      if (res.data) {
+        this.surveyData = res.data.survey ?? null
+        Object.assign(this.prefs, res.data)
+      }
     } catch { /* use defaults */ }
+  },
+  computed: {
+    surveyItems() {
+      if (!this.surveyData) return []
+      const LABEL_MAP = {
+        docFrequency: 'Document frequency',
+        docTypes: 'Document types',
+        concerns: 'Biggest concerns',
+        jargonComfort: 'Legal jargon comfort',
+        workedWithLawyer: 'Worked with lawyer before',
+      }
+      const formatLabel = (s) => s
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, c => c.toUpperCase())
+      return Object.entries(this.surveyData)
+        .filter(([k]) => k !== 'email')
+        .map(([key, value]) => ({
+          key,
+          label: LABEL_MAP[key] || formatLabel(key),
+          value: String(value || '')
+        }))
+    }
   },
   methods: {
     async changePassword() {
@@ -990,6 +1038,38 @@ export default {
   .checkbox-grid, .context-grid { grid-template-columns: 1fr; }
   .radio-pills { flex-direction: column; }
   .top-bar-inner { padding: 0.75rem 1rem; }
+}
+
+/* ── Survey results ── */
+.survey-results {
+  display: flex;
+  flex-direction: column;
+}
+
+.survey-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.survey-row:last-child { border-bottom: none; }
+
+.survey-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--vt-c-text-light-2, #888);
+  flex-shrink: 0;
+}
+
+.survey-value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text);
+  text-align: right;
+  line-height: 1.4;
 }
 
 /* ── Password section ── */
