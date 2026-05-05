@@ -157,15 +157,19 @@ const observer = new MutationObserver(() => {
 });
 
 const initialResult = detectTermsAndConditions();
-sendResult(initialResult);
 
 if (initialResult.detected) {
   injectPanel();
   chrome.runtime.sendMessage({
-    type: "TC_TEXT_EXTRACTED",
-    text: document.body.innerText,
-    url: location.href
+    type: "TC_DETECTION_RESULT",
+    detected: true,
+    score: initialResult.score,
+    url: location.href,
+    matchedSignals: initialResult.matchedSignals,
+    pageText: document.body.innerText
   });
+} else {
+  sendResult(initialResult);
 }
 
 if (!initialResult.detected && document.body) {
