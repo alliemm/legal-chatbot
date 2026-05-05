@@ -174,6 +174,10 @@ if (document.readyState === "complete") {
   window.addEventListener("load", initialize);
 }
 
+window.addEventListener("legaleye:logout", () => {
+  chrome.runtime.sendMessage({ type: "LOGOUT" });
+});
+
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "HIGHLIGHT_CLAUSES") {
     for (const clause of message.clauses) {

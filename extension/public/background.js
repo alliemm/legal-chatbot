@@ -32,6 +32,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
 
+  if (message.type === "LOGOUT") {
+    chrome.storage.local.remove("user_token");
+    return;
+  }
 
   // Popup requests the current status for a tab
   if (message.type === "GET_STATUS") {

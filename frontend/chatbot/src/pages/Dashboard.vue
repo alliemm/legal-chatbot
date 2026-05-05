@@ -40,6 +40,7 @@ function openOld(cur:Notebook){
 
 function logout() {
   localStorage.removeItem("user_token");
+  window.dispatchEvent(new CustomEvent("legaleye:logout"));
   router.push("/login");
 }
 
