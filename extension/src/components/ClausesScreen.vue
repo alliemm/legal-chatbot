@@ -55,3 +55,5 @@ onMounted(async () => {
     <button class="menu-btn" @click="emit('go', 'detected')">MENU</button>
   </div>
 </template>
+
+
