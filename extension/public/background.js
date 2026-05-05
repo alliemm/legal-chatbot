@@ -10,8 +10,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const tabId = sender.tab?.id;
     if (tabId == null) return;
 
-    // Store the latest detection data for this tab
-    tabStates.set(tabId, message);
+    
+    const prev = tabStates.get(tabId) ?? {};
+    tabStates.set(tabId, { ...prev, ...message });
 
     if (message.detected) {
       // Show a red "!" badge to alert the user
@@ -24,9 +25,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
 
-if (message.type === "TC_TEXT_EXTRACTED") {
+  if (message.type === "TC_TEXT_EXTRACTED") {
     const tabId = sender.tab?.id;
-    if (tabId == null) return;   
+    if (tabId == null) return;
     tabStates.set(tabId, { ...tabStates.get(tabId), pageText: message.text });
     return;
   }
@@ -36,7 +37,7 @@ if (message.type === "TC_TEXT_EXTRACTED") {
   if (message.type === "GET_STATUS") {
     const state = tabStates.get(message.tabId) ?? { detected: false };
     sendResponse(state);
-    // Return true to keep the message channel open for the async sendResponse
+    
     return true;
   }
 });

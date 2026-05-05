@@ -14,6 +14,17 @@ async function send() {
   if (!v || isThinking.value) return;
   messages.value.push({ role: "me", text: v });
   chatInput.value = "";
+
+  if (!props.pageText || !props.pageText.trim()) {
+    messages.value.push({
+      role: "ai",
+      text: "I couldn't read the Terms & Conditions from this page. Please reload the page and reopen the extension.",
+    });
+    await nextTick();
+    if (chatArea.value) chatArea.value.scrollTop = chatArea.value.scrollHeight;
+    return;
+  }
+
   isThinking.value = true;
   await nextTick();
   if (chatArea.value) chatArea.value.scrollTop = chatArea.value.scrollHeight;

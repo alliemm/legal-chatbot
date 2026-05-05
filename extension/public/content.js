@@ -92,6 +92,7 @@ function sendResult(result) {
     score: result.score,
     url: location.href,
     matchedSignals: result.matchedSignals,
+    pageText: document.body.innerText,
   });
 }
 
@@ -160,17 +161,8 @@ const initialResult = detectTermsAndConditions();
 
 if (initialResult.detected) {
   injectPanel();
-  chrome.runtime.sendMessage({
-    type: "TC_DETECTION_RESULT",
-    detected: true,
-    score: initialResult.score,
-    url: location.href,
-    matchedSignals: initialResult.matchedSignals,
-    pageText: document.body.innerText
-  });
-} else {
-  sendResult(initialResult);
 }
+sendResult(initialResult);
 
 if (!initialResult.detected && document.body) {
   observer.observe(document.body, { childList: true, subtree: true });

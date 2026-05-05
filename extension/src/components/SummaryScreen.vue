@@ -8,6 +8,12 @@ const summary = ref("");
 const loading = ref(true);
 
 onMounted(async () => {
+  if (!props.pageText || !props.pageText.trim()) {
+    summary.value = "I couldn't read the Terms & Conditions from this page. Please reload the page and reopen the extension.";
+    loading.value = false;
+    return;
+  }
+
   try {
     const res = await fetch("https://legal-chatbot-4t8e.onrender.com/analyze-tc", {
       method: "POST",
@@ -34,5 +40,3 @@ onMounted(async () => {
     <button class="menu-btn" @click="emit('go', 'detected')">MENU</button>
   </div>
 </template>
-
-
